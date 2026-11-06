@@ -112,6 +112,8 @@ impl Mode {
 struct App {
     load: Load,
     wall: Option<egui::TextureHandle>,
+    acr: Option<egui::TextureHandle>,
+    last_grab: std::time::Instant,
     query: String,
     mode: Mode,
     results: Vec<usize>,
@@ -140,6 +142,8 @@ impl App {
         App {
             load,
             wall,
+            acr: None,
+            last_grab: std::time::Instant::now(),
             query: String::new(),
             mode: Mode::All,
             results: Vec::new(),
@@ -232,6 +236,26 @@ impl eframe::App for App {
             self.refresh();
         }
 
+        // Акрил: снимаем, что за окном, и размываем
+        if self.st.backdrop == crate::settings::Backdrop::Acrylic {
+            if self.last_grab.elapsed() > Duration::from_millis(120) {
+                if let Some(h) = hwnd_of(frame) {
+                    if let Some((x, y, w, hh)) = client_rect_screen(h) {
+                        crate::capture::exclude_from_capture(h, true);
+                        if let Some((px, tw, th)) = crate::capture::grab_blurred(x, y, w, hh, 200, 120, 5.0) {
+                            let img = egui::ColorImage::from_rgba_unmultiplied([tw as usize, th as usize], &px);
+                            self.acr = Some(ctx.load_texture("acr", img, egui::TextureOptions::LINEAR));
+                        }
+                        crate::capture::exclude_from_capture(h, false);
+                    }
+                }
+                self.last_grab = std::time::Instant::now();
+                ctx.request_repaint_after(Duration::from_millis(130));
+            }
+        } else if self.acr.is_some() {
+            self.acr = None;
+        }
+
         // запоминаем размер окна (не чаще раза в секунду)
         if let Some(r) = ctx.input(|i| i.viewport().inner_rect) {
             let sz = [r.width(), r.height()];
@@ -245,8 +269,10 @@ impl eframe::App for App {
         }
 
         let wall_id = self.wall.as_ref().map(|t| t.id());
+        let acr_id = self.acr.as_ref().map(|t| t.id());
         let bg = pal().bg;
-        if let Some(id) = wall_id {
+        let bg_tex = if self.st.backdrop == crate::settings::Backdrop::Acrylic { acr_id } else { wall_id };
+        if let Some(id) = bg_tex {
             // обои и тонировка — на самый нижний слой, на всю площадь окна
             let p = ctx.layer_painter(egui::LayerId::background());
             let r = ctx.screen_rect();
@@ -256,7 +282,7 @@ impl eframe::App for App {
         egui::CentralPanel::default()
             .frame(
                 egui::Frame::none()
-                    .fill(if wall_id.is_some() { Color32::TRANSPARENT } else { bg })
+                    .fill(if bg_tex.is_some() { Color32::TRANSPARENT } else { bg })
                     .inner_margin(Margin::same(16.0)),
             )
             .show(ctx, |ui| {
@@ -737,6 +763,44 @@ fn open_path(p: &str) {
 #[cfg(not(windows))]
 fn open_path(p: &str) {
     let _ = std::process::Command::new("xdg-open").arg(p).spawn();
+}
+
+#[cfg(windows)]
+fn hwnd_of(frame: &eframe::Frame) -> Option<*mut core::ffi::c_void> {
+    use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+    let h = frame.window_handle().ok()?;
+    match h.as_raw() {
+        RawWindowHandle::Win32(w) => Some(w.hwnd.get() as *mut core::ffi::c_void),
+        _ => None,
+    }
+}
+
+#[cfg(not(windows))]
+fn hwnd_of(_frame: &eframe::Frame) -> Option<*mut core::ffi::c_void> {
+    None
+}
+
+#[cfg(windows)]
+fn client_rect_screen(hwnd: *mut core::ffi::c_void) -> Option<(i32, i32, i32, i32)> {
+    use windows_sys::Win32::Foundation::{POINT, RECT};
+    use windows_sys::Win32::Graphics::Gdi::ClientToScreen;
+    use windows_sys::Win32::UI::WindowsAndMessaging::GetClientRect;
+    unsafe {
+        let mut r: RECT = std::mem::zeroed();
+        if GetClientRect(hwnd, &mut r) == 0 {
+            return None;
+        }
+        let mut p = POINT { x: 0, y: 0 };
+        if ClientToScreen(hwnd, &mut p) == 0 {
+            return None;
+        }
+        Some((p.x, p.y, r.right - r.left, r.bottom - r.top))
+    }
+}
+
+#[cfg(not(windows))]
+fn client_rect_screen(_h: *mut core::ffi::c_void) -> Option<(i32, i32, i32, i32)> {
+    None
 }
 
 #[cfg(windows)]

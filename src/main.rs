@@ -1,3 +1,4 @@
+mod capture;
 mod gui;
 mod index;
 mod settings;
