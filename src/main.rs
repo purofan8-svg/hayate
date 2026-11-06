@@ -4,6 +4,7 @@ mod settings;
 mod settings_ui;
 mod tui;
 mod walk;
+mod wallpaper;
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;

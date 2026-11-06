@@ -4,7 +4,7 @@ use eframe::egui::{
     self, Align, Color32, FontId, Layout, Margin, RichText, Rounding, Sense, Stroke, pos2, vec2,
 };
 
-use crate::settings::{Accent, Density, Match, Settings, Sort, Theme, pal};
+use crate::settings::{Accent, Backdrop, Density, Match, Settings, Sort, Theme, pal};
 
 pub fn window(ctx: &egui::Context, st: &mut Settings, open: &mut bool) {
     let mut is_open = *open;
@@ -46,14 +46,15 @@ fn body(ui: &mut egui::Ui, st: &mut Settings) {
             }
         });
     });
-    row(ui, "Прозрачность", |ui| {
+    row(ui, "Непрозрачность фона", |ui| {
         let mut pct = (st.opacity * 100.0).round();
-        if ui.add(egui::Slider::new(&mut pct, 55.0..=100.0).suffix(" %").show_value(true)).changed() {
+        if ui.add(egui::Slider::new(&mut pct, 20.0..=100.0).suffix(" %").show_value(true)).changed() {
             st.opacity = pct / 100.0;
         }
     });
-    row(ui, "Mica (Win11)", |ui| {
-        toggle(ui, &mut st.mica);
+    row(ui, "Подложка", |ui| {
+        let opts: Vec<(Backdrop, &str)> = Backdrop::ALL.iter().map(|&b| (b, b.name())).collect();
+        segmented(ui, &mut st.backdrop, &opts);
     });
 
     section(ui, "СПИСОК");

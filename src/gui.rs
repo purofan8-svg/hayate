@@ -111,6 +111,7 @@ impl Mode {
 
 struct App {
     load: Load,
+    wall: Option<egui::TextureHandle>,
     query: String,
     mode: Mode,
     results: Vec<usize>,
@@ -135,8 +136,10 @@ impl App {
             true => Load::Loading(spawn_load()),
             false => Load::Failed("Индекс ещё не построен".into()),
         };
+        let wall = load_wall(&cc.egui_ctx, &st);
         App {
             load,
+            wall,
             query: String::new(),
             mode: Mode::All,
             results: Vec::new(),
@@ -187,7 +190,7 @@ impl App {
 impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         if !self.titlebar_done {
-            set_dark_titlebar(frame, self.st.mica);
+            set_dark_titlebar(frame, self.st.backdrop);
             self.titlebar_done = true;
         }
 
@@ -218,9 +221,11 @@ impl eframe::App for App {
 
         if self.style_dirty {
             apply_style(ctx, &self.st);
-            set_dark_titlebar(frame, self.st.mica);
+            set_dark_titlebar(frame, self.st.backdrop);
+            self.wall = load_wall(ctx, &self.st);
             self.style_dirty = false;
             self.dirty = true;
+            ctx.request_repaint();
         }
 
         if self.dirty {
@@ -239,9 +244,20 @@ impl eframe::App for App {
             }
         }
 
+        let wall_id = self.wall.as_ref().map(|t| t.id());
+        let bg = pal().bg;
         egui::CentralPanel::default()
-            .frame(egui::Frame::none().fill(pal().bg).inner_margin(Margin::same(16.0)))
+            .frame(
+                egui::Frame::none()
+                    .fill(if wall_id.is_some() { Color32::TRANSPARENT } else { bg })
+                    .inner_margin(Margin::same(16.0)),
+            )
             .show(ctx, |ui| {
+                if let Some(id) = wall_id {
+                    let r = ui.max_rect();
+                    ui.painter().image(id, r, Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)), Color32::WHITE);
+                    ui.painter().rect_filled(r, 0.0, bg);
+                }
                 self.header(ui, ctx);
                 ui.add_space(12.0);
                 let failed = match &self.load { Load::Failed(m) => Some(m.clone()), _ => None };
@@ -619,6 +635,18 @@ fn kind_color(k: Kind) -> Color32 {
     }
 }
 
+fn load_wall(ctx: &egui::Context, st: &Settings) -> Option<egui::TextureHandle> {
+    use crate::settings::Backdrop;
+    let (side, radius) = match st.backdrop {
+        Backdrop::None => return None,
+        Backdrop::Mica => (96u32, 5.0f32),
+        Backdrop::Acrylic => (64, 10.0),
+    };
+    let (px, w, h) = crate::wallpaper::blurred(side, radius)?;
+    let img = egui::ColorImage::from_rgba_unmultiplied([w as usize, h as usize], &px);
+    Some(ctx.load_texture("wallpaper", img, egui::TextureOptions::LINEAR))
+}
+
 fn install_fonts(ctx: &egui::Context) {
     let candidates = [
         "C:/Windows/Fonts/SegUIVar.ttf",
@@ -710,21 +738,77 @@ fn open_path(p: &str) {
 }
 
 #[cfg(windows)]
-fn set_dark_titlebar(frame: &eframe::Frame, mica: bool) {
+fn set_dark_titlebar(frame: &eframe::Frame, backdrop: crate::settings::Backdrop) {
+    use crate::settings::Backdrop;
     use raw_window_handle::{HasWindowHandle, RawWindowHandle};
     use windows_sys::Win32::Graphics::Dwm::{DWMWA_USE_IMMERSIVE_DARK_MODE, DwmSetWindowAttribute};
     let Ok(h) = frame.window_handle() else { return };
-    if let RawWindowHandle::Win32(w) = h.as_raw() {
-        let hwnd = w.hwnd.get() as *mut core::ffi::c_void;
-        let dark: i32 = if pal().dark { 1 } else { 0 };
-        // DWMWA_SYSTEMBACKDROP_TYPE = 38: 1 = нет, 2 = Mica
-        let backdrop: i32 = if mica { 2 } else { 1 };
-        unsafe {
-            DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE as u32, &dark as *const _ as *const _, 4);
-            DwmSetWindowAttribute(hwnd, 38, &backdrop as *const _ as *const _, 4);
+    let RawWindowHandle::Win32(w) = h.as_raw() else { return };
+    let hwnd = w.hwnd.get() as *mut core::ffi::c_void;
+    let dark = pal().dark;
+    unsafe {
+        let d: i32 = if dark { 1 } else { 0 };
+        DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE as u32, &d as *const _ as *const _, 4);
+        // Mica через DWM; акрил делаем ниже через композицию
+        let sys: i32 = if backdrop == Backdrop::Mica { 2 } else { 1 };
+        DwmSetWindowAttribute(hwnd, 38, &sys as *const _ as *const _, 4);
+    }
+
+    // системный акрил на Win11 25H2 заливает окно тёмным материалом — не используем
+    set_acrylic(hwnd, None);
+}
+
+/// Классический акрил Windows: размытие того, что за окном.
+#[cfg(windows)]
+fn set_acrylic(hwnd: *mut core::ffi::c_void, tint: Option<(u8, u8, u8, u8)>) {
+    #[repr(C)]
+    struct AccentPolicy {
+        state: i32,
+        flags: i32,
+        gradient_color: u32,
+        animation_id: i32,
+    }
+    #[repr(C)]
+    struct Wcad {
+        attrib: u32,
+        data: *mut core::ffi::c_void,
+        size: usize,
+    }
+    type Pfn = unsafe extern "system" fn(*mut core::ffi::c_void, *mut Wcad) -> i32;
+
+    const WCA_ACCENT_POLICY: u32 = 19;
+    const ACCENT_ENABLE_ACRYLICBLURBEHIND: i32 = 3;
+
+    unsafe {
+        use windows_sys::Win32::System::LibraryLoader::{GetModuleHandleW, GetProcAddress};
+        let name: Vec<u16> = "user32.dll\0".encode_utf16().collect();
+        let hmod = GetModuleHandleW(name.as_ptr());
+        if hmod.is_null() {
+            return;
         }
+        let Some(proc) = GetProcAddress(hmod, c"SetWindowCompositionAttribute".as_ptr() as *const u8) else {
+            return;
+        };
+        let f: Pfn = std::mem::transmute(proc);
+
+        let mut policy = match tint {
+            Some((a, r, g, b)) => AccentPolicy {
+                state: ACCENT_ENABLE_ACRYLICBLURBEHIND,
+                flags: 2,
+                // 0xAABBGGRR
+                gradient_color: ((a as u32) << 24) | ((b as u32) << 16) | ((g as u32) << 8) | r as u32,
+                animation_id: 0,
+            },
+            None => AccentPolicy { state: 0, flags: 0, gradient_color: 0, animation_id: 0 },
+        };
+        let mut data = Wcad {
+            attrib: WCA_ACCENT_POLICY,
+            data: &mut policy as *mut _ as *mut core::ffi::c_void,
+            size: std::mem::size_of::<AccentPolicy>(),
+        };
+        let _ = f(hwnd, &mut data);
     }
 }
 
 #[cfg(not(windows))]
-fn set_dark_titlebar(_frame: &eframe::Frame, _mica: bool) {}
+fn set_dark_titlebar(_frame: &eframe::Frame, _backdrop: crate::settings::Backdrop) {}
