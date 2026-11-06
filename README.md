@@ -3,10 +3,13 @@
 Мгновенный поиск файлов для Windows и Linux. Rust, без Electron, без индексации в фоне годами.
 
 ```
+hayate                     # GUI в стиле Windows 11
 hayate index               # просканировать все диски (≈7 с на 1 млн записей)
-hayate tui                 # интерактивный поиск
+hayate tui                 # интерактивный поиск в терминале
 hayate find create -l 20   # консольный поиск
 ```
+
+![GUI](docs/screenshot.png)
 
 ## Что умеет
 

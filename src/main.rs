@@ -1,3 +1,4 @@
+mod gui;
 mod index;
 mod tui;
 mod walk;
@@ -14,11 +15,13 @@ use crate::index::{Filter, Index, Kind};
 #[command(name = "hayate", version, about = "Мгновенный поиск файлов: Windows + Linux")]
 struct Cli {
     #[command(subcommand)]
-    cmd: Cmd,
+    cmd: Option<Cmd>,
 }
 
 #[derive(Subcommand)]
 enum Cmd {
+    /// Открыть окно поиска (по умолчанию, если команда не указана)
+    Gui,
     /// Построить индекс (по умолчанию — все диски / корень)
     Index {
         /// Каталоги для индексации
@@ -64,14 +67,15 @@ enum Cmd {
 
 fn main() {
     let cli = Cli::parse();
-    if let Err(e) = run(cli) {
+    if let Err(e) = run(cli.cmd.unwrap_or(Cmd::Gui)) {
         eprintln!("hayate: {e}");
         std::process::exit(1);
     }
 }
 
-fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
-    match cli.cmd {
+fn run(cmd: Cmd) -> Result<(), Box<dyn std::error::Error>> {
+    match cmd {
+        Cmd::Gui => gui::run()?,
         Cmd::Index { roots, exclude, out } => {
             let roots = if roots.is_empty() { walk::default_roots() } else { roots };
             println!("Сканирую: {}", roots.iter().map(|p| p.display().to_string()).collect::<Vec<_>>().join(", "));
@@ -190,7 +194,7 @@ fn load() -> Result<Index, Box<dyn std::error::Error>> {
     Ok(Index::load(&p)?)
 }
 
-fn index_path() -> PathBuf {
+pub(crate) fn index_path() -> PathBuf {
     if let Ok(p) = std::env::var("HAYATE_INDEX") {
         return PathBuf::from(p);
     }
