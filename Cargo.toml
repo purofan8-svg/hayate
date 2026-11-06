@@ -24,6 +24,8 @@ jwalk = "0.8"
 memchr = "2"
 ratatui = "0.29"
 rayon = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 
 [target.'cfg(windows)'.dependencies]
 raw-window-handle = "0.6"

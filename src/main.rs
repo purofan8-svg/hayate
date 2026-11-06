@@ -1,5 +1,7 @@
 mod gui;
 mod index;
+mod settings;
+mod settings_ui;
 mod tui;
 mod walk;
 
@@ -183,6 +185,7 @@ fn build_filter(
             let e = e.trim().to_lowercase();
             if e.starts_with('.') { e } else { format!(".{e}") }
         }),
+        ..Default::default()
     })
 }
 

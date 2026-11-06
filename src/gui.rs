@@ -1,6 +1,5 @@
 //! GUI в стиле Windows 11: тёмная тема, скругления, Segoe UI, чипы фильтров.
 
-use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::mpsc::{Receiver, channel};
 use std::time::Duration;
@@ -12,28 +11,47 @@ use egui::{
 };
 
 use crate::index::{Filter, Index, Kind};
+use crate::settings::{self, Settings, pal, row_h, show_sizes};
 
-// Windows 11 dark palette
-const BG: Color32 = Color32::from_rgb(0x1b, 0x1b, 0x1f);
-const SURFACE: Color32 = Color32::from_rgb(0x25, 0x25, 0x2b);
-const SURFACE_HI: Color32 = Color32::from_rgb(0x2e, 0x2e, 0x36);
-const HOVER: Color32 = Color32::from_rgb(0x33, 0x33, 0x3b);
-const TEXT: Color32 = Color32::from_rgb(0xf2, 0xf2, 0xf5);
-const DIM: Color32 = Color32::from_rgb(0x9a, 0x9a, 0xa6);
-const ACCENT: Color32 = Color32::from_rgb(0x4c, 0xc2, 0xff);
-const ACCENT_SOFT: Color32 = Color32::from_rgb(0x1e, 0x3a, 0x4d);
-const ROW_H: f32 = 38.0;
+/// Применить оформление из настроек
+fn apply_style(ctx: &egui::Context, st: &Settings) {
+    let p = settings::palette(st);
+    settings::set_pal(p);
+    settings::set_row_h(st.density.row_height());
+    settings::set_show_sizes(st.show_sizes);
+
+    let mut v = if p.dark { egui::Visuals::dark() } else { egui::Visuals::light() };
+    v.panel_fill = p.bg;
+    v.window_fill = p.surface;
+    v.extreme_bg_color = p.surface_hi;
+    v.faint_bg_color = p.surface;
+    v.override_text_color = Some(p.text);
+    v.selection.bg_fill = p.accent_soft;
+    v.selection.stroke = Stroke::new(1.0_f32, p.accent);
+    v.widgets.noninteractive.bg_stroke = Stroke::new(1.0_f32, p.border);
+    v.widgets.inactive.bg_fill = p.surface_hi;
+    v.widgets.hovered.bg_fill = p.hover;
+    v.widgets.active.bg_fill = p.hover;
+    ctx.set_visuals(v);
+    ctx.style_mut(|s| {
+        s.spacing.item_spacing = vec2(8.0, 8.0);
+        s.spacing.button_padding = vec2(10.0, 5.0);
+    });
+    ctx.set_pixels_per_point(st.font_scale.clamp(0.85, 1.3));
+}
 
 pub fn run() -> eframe::Result<()> {
+    let st = Settings::load();
     let opts = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
-            .with_inner_size([1000.0, 680.0])
-            .with_min_inner_size([700.0, 420.0])
+            .with_inner_size(st.window)
+            .with_min_inner_size([720.0, 440.0])
+            .with_transparent(true)
             .with_title("hayate"),
         vsync: true,
         ..Default::default()
     };
-    eframe::run_native("hayate", opts, Box::new(|cc| Ok(Box::new(App::new(cc)))))
+    eframe::run_native("hayate", opts, Box::new(move |cc| Ok(Box::new(App::new(cc, st)))))
 }
 
 type LoadRx = Receiver<Result<Arc<Index>, String>>;
@@ -53,28 +71,25 @@ enum Mode {
 }
 
 impl Mode {
-    fn label(self) -> &'static str {
-        match self {
-            Mode::All => "Всё",
-            Mode::Dirs => "Папки",
-            Mode::Files => "Файлы",
-            Mode::Kind(k) => k.name(),
-        }
-    }
-
     fn chip_label(self) -> String {
         match self {
             Mode::All => "Всё".into(),
             Mode::Dirs => "Папки".into(),
             Mode::Files => "Файлы".into(),
-            Mode::Kind(k) => {
-                let n = k.name();
-                let mut c = n.chars();
-                match c.next() {
-                    Some(f) => f.to_uppercase().collect::<String>() + c.as_str(),
-                    None => String::new(),
-                }
-            }
+            Mode::Kind(k) => match k {
+                            Kind::Image => "Фото".into(),
+                            Kind::Doc => "Доки".into(),
+                            Kind::Exec => "EXE".into(),
+                            Kind::Model => "3D".into(),
+                            _ => {
+                                let n = k.name();
+                                let mut c = n.chars();
+                                match c.next() {
+                                    Some(f) => f.to_uppercase().collect::<String>() + c.as_str(),
+                                    None => String::new(),
+                                }
+                            }
+                        },
         }
     }
 
@@ -105,24 +120,16 @@ struct App {
     scroll_to_sel: bool,
     scanned: Option<std::process::Child>,
     titlebar_done: bool,
+    st: Settings,
+    show_settings: bool,
+    style_dirty: bool,
+    last_save: std::time::Instant,
 }
 
-const MAX_ROWS: usize = 200;
-
 impl App {
-    fn new(cc: &eframe::CreationContext<'_>) -> App {
+    fn new(cc: &eframe::CreationContext<'_>, st: Settings) -> App {
         install_fonts(&cc.egui_ctx);
-        let mut v = egui::Visuals::dark();
-        v.panel_fill = BG;
-        v.window_fill = BG;
-        v.extreme_bg_color = SURFACE;
-        v.override_text_color = Some(TEXT);
-        v.selection.bg_fill = ACCENT_SOFT;
-        cc.egui_ctx.set_visuals(v);
-        cc.egui_ctx.style_mut(|s| {
-            s.spacing.item_spacing = vec2(8.0, 8.0);
-            s.spacing.button_padding = vec2(10.0, 5.0);
-        });
+        apply_style(&cc.egui_ctx, &st);
 
         let load = match crate::index_path().exists() {
             true => Load::Loading(spawn_load()),
@@ -139,12 +146,21 @@ impl App {
             scroll_to_sel: false,
             scanned: None,
             titlebar_done: false,
+            st,
+            show_settings: std::env::var_os("HAYATE_OPEN_SETTINGS").is_some(),
+            style_dirty: false,
+            last_save: std::time::Instant::now(),
         }
     }
 
     fn refresh(&mut self) {
         let Load::Ready(ix) = &self.load else { return };
-        let r = ix.search(&self.query, MAX_ROWS, &self.mode.filter());
+        let mut f = self.mode.filter();
+        f.hide_hidden = !self.st.show_hidden;
+        f.match_mode = self.st.match_mode;
+        f.sort = self.st.sort;
+        let limit = self.st.limit.clamp(20, 2000);
+        let r = ix.search(&self.query, limit, &f);
         self.results = r.hits;
         self.took_ms = r.took.as_secs_f64() * 1000.0;
         if self.sel >= self.results.len() {
@@ -171,7 +187,7 @@ impl App {
 impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         if !self.titlebar_done {
-            set_dark_titlebar(frame);
+            set_dark_titlebar(frame, self.st.mica);
             self.titlebar_done = true;
         }
 
@@ -200,12 +216,31 @@ impl eframe::App for App {
             }
         }
 
+        if self.style_dirty {
+            apply_style(ctx, &self.st);
+            set_dark_titlebar(frame, self.st.mica);
+            self.style_dirty = false;
+            self.dirty = true;
+        }
+
         if self.dirty {
             self.refresh();
         }
 
+        // запоминаем размер окна (не чаще раза в секунду)
+        if let Some(r) = ctx.input(|i| i.viewport().inner_rect) {
+            let sz = [r.width(), r.height()];
+            if (self.st.window[0] - sz[0]).abs() > 1.0 || (self.st.window[1] - sz[1]).abs() > 1.0 {
+                self.st.window = sz;
+                if self.last_save.elapsed() > Duration::from_millis(1000) {
+                    self.st.save();
+                    self.last_save = std::time::Instant::now();
+                }
+            }
+        }
+
         egui::CentralPanel::default()
-            .frame(egui::Frame::none().fill(BG).inner_margin(Margin::same(16.0)))
+            .frame(egui::Frame::none().fill(pal().bg).inner_margin(Margin::same(16.0)))
             .show(ctx, |ui| {
                 self.header(ui, ctx);
                 ui.add_space(12.0);
@@ -220,25 +255,43 @@ impl eframe::App for App {
                 } else {
                     ui.add_space(40.0);
                     ui.vertical_centered(|ui| {
-                        ui.label(RichText::new("Загружаю индекс…").size(15.0).color(DIM));
+                        ui.label(RichText::new("Загружаю индекс…").size(15.0).color(pal().dim));
                     });
                 }
                 self.status(ui);
             });
 
+        if self.show_settings {
+            let before = self.st.clone();
+            crate::settings_ui::window(ctx, &mut self.st, &mut self.show_settings);
+            if before != self.st {
+                self.st.save();
+                self.style_dirty = true;
+                self.dirty = true;
+            }
+        }
+
         keys(self, ctx);
+    }
+
+    fn clear_color(&self, _visuals: &egui::Visuals) -> [f32; 4] {
+        // окно прозрачное: фон рисует центральная панель с альфой
+        [0.0, 0.0, 0.0, 0.0]
     }
 }
 
 impl App {
     fn header(&mut self, ui: &mut egui::Ui, _ctx: &egui::Context) {
         ui.horizontal(|ui| {
-            ui.label(RichText::new("hayate").size(20.0).strong().color(TEXT));
-            ui.label(RichText::new("поиск файлов").size(12.0).color(DIM));
+            ui.label(RichText::new("hayate").size(20.0).strong().color(pal().text));
+            ui.label(RichText::new("поиск файлов").size(12.0).color(pal().dim));
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                if icon_settings(ui).on_hover_text("Настройки").clicked() {
+                    self.show_settings = true;
+                }
                 if let Some(ix) = self.ix() {
-                    let txt = format!("{} записей", fmt_num(ix.len()));
-                    ui.label(RichText::new(txt).size(12.0).color(DIM));
+                    let txt = format!("{} {}", fmt_num(ix.len()), plural_records(ix.len()));
+                    ui.label(RichText::new(txt).size(12.0).color(pal().dim));
                 }
             });
         });
@@ -246,7 +299,7 @@ impl App {
 
         // строка поиска
         egui::Frame::none()
-            .fill(SURFACE)
+            .fill(pal().surface)
             .rounding(Rounding::same(12.0))
             .inner_margin(Margin::symmetric(14.0, 9.0))
             .stroke(Stroke::new(1.0_f32, Color32::from_rgb(0x38, 0x38, 0x42)))
@@ -255,15 +308,15 @@ impl App {
                     let (rect, _) = ui.allocate_exact_size(vec2(20.0, 22.0), Sense::hover());
                     let c = rect.center() + vec2(-2.0, -2.0);
                     let p = ui.painter();
-                    p.circle_stroke(c, 6.0, Stroke::new(1.7_f32, DIM));
-                    p.line_segment([c + vec2(4.4, 4.4), c + vec2(8.4, 8.4)], Stroke::new(1.7_f32, DIM));
+                    p.circle_stroke(c, 6.0, Stroke::new(1.7_f32, pal().dim));
+                    p.line_segment([c + vec2(4.4, 4.4), c + vec2(8.4, 8.4)], Stroke::new(1.7_f32, pal().dim));
 
                     let before = self.query.clone();
                     let te = egui::TextEdit::singleline(&mut self.query)
                         .frame(false)
-                        .hint_text(RichText::new("Поиск файлов и папок…").color(DIM))
+                        .hint_text(RichText::new("Поиск файлов и папок…").color(pal().dim))
                         .font(FontId::proportional(16.0))
-                        .text_color(TEXT)
+                        .text_color(pal().text)
                         .desired_width(f32::INFINITY)
                         .margin(Margin::ZERO);
                     let resp = ui.add(te);
@@ -302,7 +355,7 @@ impl App {
                 } else {
                     "Ничего не нашлось"
                 };
-                ui.label(RichText::new(msg).size(14.0).color(DIM));
+                ui.label(RichText::new(msg).size(14.0).color(pal().dim));
             });
             return;
         }
@@ -315,8 +368,9 @@ impl App {
         area.show(ui, |ui| {
             ui.spacing_mut().item_spacing.y = 2.0;
             for (row, &idx) in self.results.iter().enumerate() {
-                let (rect, resp) = ui.allocate_exact_size(vec2(ui.available_width(), ROW_H), Sense::click());
-                let selected = row == self.sel;
+                let (rect, resp) = ui.allocate_exact_size(vec2(ui.available_width(), row_h()), Sense::click());
+                                let resp = resp.on_hover_text(ix.path_at(idx));
+                                let selected = row == self.sel;
                 draw_row(ui, &resp, rect, ix, idx, selected);
                 if resp.clicked() {
                     clicked = Some(row);
@@ -345,17 +399,17 @@ impl App {
     fn empty_state(&mut self, ui: &mut egui::Ui, msg: &str) {
         ui.add_space(50.0);
         ui.vertical_centered(|ui| {
-            ui.label(RichText::new("Индекса нет").size(18.0).color(TEXT));
+            ui.label(RichText::new("Индекса нет").size(18.0).color(pal().text));
             ui.add_space(6.0);
-            ui.label(RichText::new(msg).size(13.0).color(DIM));
+            ui.label(RichText::new(msg).size(13.0).color(pal().dim));
             ui.add_space(16.0);
             let scanning = self.scanned.is_some();
             let btn = egui::Button::new(
                 RichText::new(if scanning { "Сканирую…" } else { "Построить индекс" })
                     .size(14.0)
-                    .color(if scanning { DIM } else { BG }),
+                    .color(if scanning { pal().dim } else { pal().bg }),
             )
-            .fill(if scanning { SURFACE_HI } else { ACCENT })
+            .fill(if scanning { pal().surface_hi } else { pal().accent })
             .rounding(Rounding::same(8.0))
             .min_size(vec2(200.0, 36.0));
             if ui.add_enabled(!scanning, btn).clicked() {
@@ -371,13 +425,13 @@ impl App {
             ui.add_space(2.0);
             ui.horizontal(|ui| {
                 if let Load::Ready(_) = self.load {
-                    let txt = format!("{} {} · {} мс", self.results.len(), plural(self.results.len()), fmt_ms(self.took_ms));
-                    ui.label(RichText::new(txt).size(11.5).color(DIM));
+                    let txt = format!("{}{} {} · {} мс", self.results.len(), if self.results.len() >= self.st.limit { "+" } else { "" }, plural(self.results.len()), fmt_ms(self.took_ms));
+                    ui.label(RichText::new(txt).size(11.5).color(pal().dim));
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                        ui.label(RichText::new("Enter — открыть · ↑↓ — выбор · Esc — очистить").size(11.5).color(DIM));
+                        ui.label(RichText::new("Enter — открыть · ↑↓ — выбор · Esc — очистить · Ctrl+, — настройки").size(11.5).color(pal().dim));
                     });
                 } else if self.scanned.is_some() {
-                    ui.label(RichText::new("Сканирую диски, это может занять пару минут…").size(11.5).color(DIM));
+                    ui.label(RichText::new("Сканирую диски, это может занять пару минут…").size(11.5).color(pal().dim));
                 }
             });
         });
@@ -385,6 +439,17 @@ impl App {
 }
 
 fn keys(app: &mut App, ctx: &egui::Context) {
+    if ctx.input(|i| i.modifiers.ctrl && i.key_pressed(egui::Key::Comma)) {
+            app.show_settings = true;
+            ctx.request_repaint();
+        }
+        if app.show_settings {
+            if ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
+                app.show_settings = false;
+                ctx.request_repaint();
+            }
+            return;
+        }
     if app.results.is_empty() {
         return;
     }
@@ -415,16 +480,16 @@ fn keys(app: &mut App, ctx: &egui::Context) {
 
 fn chip(ui: &mut egui::Ui, label: &str, selected: bool) -> egui::Response {
     let font = FontId::proportional(12.5);
-    let galley = ui.painter().layout_no_wrap(label.to_string(), font.clone(), TEXT);
+    let galley = ui.painter().layout_no_wrap(label.to_string(), font.clone(), pal().text);
     let size = vec2(galley.rect.width() + 22.0, 28.0);
     let (rect, resp) = ui.allocate_exact_size(size, Sense::click());
     let hovered = resp.hovered();
     let (fill, stroke, color) = if selected {
-        (ACCENT_SOFT, Stroke::new(1.0_f32, Color32::from_rgb(0x2f, 0x7f, 0xa8)), ACCENT)
+        (pal().accent_soft, Stroke::new(1.0_f32, Color32::from_rgb(0x2f, 0x7f, 0xa8)), pal().accent)
     } else if hovered {
-        (HOVER, Stroke::NONE, TEXT)
+        (pal().hover, Stroke::NONE, pal().text)
     } else {
-        (Color32::TRANSPARENT, Stroke::NONE, DIM)
+        (Color32::TRANSPARENT, Stroke::NONE, pal().dim)
     };
     let p = ui.painter();
     p.rect(rect, Rounding::same(9.0), fill, stroke);
@@ -433,18 +498,32 @@ fn chip(ui: &mut egui::Ui, label: &str, selected: bool) -> egui::Response {
     resp
 }
 
+fn icon_settings(ui: &mut egui::Ui) -> egui::Response {
+    let (rect, resp) = ui.allocate_exact_size(vec2(30.0, 28.0), Sense::click());
+    if resp.hovered() {
+        ui.painter().rect_filled(rect, Rounding::same(7.0), pal().hover);
+    }
+    let p = ui.painter();
+    let c = rect.center();
+    for (dy, off) in [(-6.0f32, -3.0f32), (0.0, 3.0), (6.0, -1.5)] {
+        p.line_segment([pos2(c.x - 7.0, c.y + dy), pos2(c.x + 7.0, c.y + dy)], Stroke::new(1.6_f32, pal().dim));
+        p.circle_filled(pos2(c.x + off, c.y + dy), 2.2, pal().dim);
+    }
+    resp
+}
+
 fn draw_row(ui: &egui::Ui, resp: &egui::Response, rect: Rect, ix: &Index, idx: usize, selected: bool) {
     let p = ui.painter();
     let hovered = resp.hovered();
     if selected {
-        p.rect_filled(rect, Rounding::same(8.0), ACCENT_SOFT);
+        p.rect_filled(rect, Rounding::same(8.0), pal().accent_soft);
     } else if hovered {
-        p.rect_filled(rect, Rounding::same(8.0), HOVER);
+        p.rect_filled(rect, Rounding::same(8.0), pal().hover);
     }
 
     let is_dir = ix.is_dir(idx);
     let kind = ix.kind_at(idx);
-    let (tag, color) = if is_dir { ("папка", ACCENT) } else { (kind.name(), kind_color(kind)) };
+    let (tag, color) = if is_dir { ("папка", pal().accent) } else { (kind.name(), kind_color(kind)) };
 
     // пилюля типа
     let tag_rect = Rect::from_min_size(rect.left_top() + vec2(8.0, 9.0), vec2(86.0, 20.0));
@@ -453,10 +532,13 @@ fn draw_row(ui: &egui::Ui, resp: &egui::Response, rect: Rect, ix: &Index, idx: u
     p.galley(tag_rect.center() - tg.rect.size() / 2.0, tg, color);
 
     let right = rect.right() - 10.0;
-    let size_txt = if is_dir { "—".to_string() } else { human(ix.size_at(idx)) };
-    let sg = p.layout_no_wrap(size_txt, FontId::proportional(11.5), DIM);
-    let size_left = right - sg.rect.width();
-    p.galley(pos2(size_left, rect.center().y - sg.rect.height() / 2.0), sg, DIM);
+    let mut size_left = right;
+    if show_sizes() {
+        let size_txt = if is_dir { "—".to_string() } else { human(ix.size_at(idx)) };
+        let sg = p.layout_no_wrap(size_txt, FontId::proportional(11.5), pal().dim);
+        size_left = right - sg.rect.width();
+        p.galley(pos2(size_left, rect.center().y - sg.rect.height() / 2.0), sg, pal().dim);
+    }
 
     // путь: каталог тускло, имя ярко, лишнее режется
     let path = ix.path_at(idx);
@@ -467,26 +549,26 @@ fn draw_row(ui: &egui::Ui, resp: &egui::Response, rect: Rect, ix: &Index, idx: u
     let text_left = tag_rect.right() + 10.0;
     let avail = (size_left - 8.0) - text_left;
     let name_font = FontId::proportional(13.5);
-    let ng = p.layout_no_wrap(name.to_string(), name_font.clone(), TEXT);
+    let ng = p.layout_no_wrap(name.to_string(), name_font.clone(), pal().text);
     let name_w = ng.rect.width();
 
     if name_w >= avail {
         let cut = truncate_right(name, avail, name_w);
-        let g = p.layout_no_wrap(cut, name_font, TEXT);
-        p.galley(pos2(text_left, rect.center().y - g.rect.height() / 2.0), g, TEXT);
+        let g = p.layout_no_wrap(cut, name_font, pal().text);
+        p.galley(pos2(text_left, rect.center().y - g.rect.height() / 2.0), g, pal().text);
     } else {
         let dir_space = avail - name_w;
-        let dg = p.layout_no_wrap(dir.to_string(), FontId::proportional(12.5), DIM);
+        let dg = p.layout_no_wrap(dir.to_string(), FontId::proportional(12.5), pal().dim);
         let mut dir_w = dg.rect.width();
         if dir_w <= dir_space {
-            p.galley(pos2(text_left, rect.center().y - dg.rect.height() / 2.0), dg, DIM);
+            p.galley(pos2(text_left, rect.center().y - dg.rect.height() / 2.0), dg, pal().dim);
         } else {
             let cut = truncate_left(dir, dir_space, dir_w);
-            let g = p.layout_no_wrap(cut, FontId::proportional(12.5), DIM);
+            let g = p.layout_no_wrap(cut, FontId::proportional(12.5), pal().dim);
             dir_w = g.rect.width().min(dir_space);
-            p.galley(pos2(text_left, rect.center().y - g.rect.height() / 2.0), g, DIM);
+            p.galley(pos2(text_left, rect.center().y - g.rect.height() / 2.0), g, pal().dim);
         }
-        p.galley(pos2(text_left + dir_w, rect.center().y - ng.rect.height() / 2.0), ng, TEXT);
+        p.galley(pos2(text_left + dir_w, rect.center().y - ng.rect.height() / 2.0), ng, pal().text);
     }
 }
 
@@ -513,7 +595,7 @@ fn truncate_left(text: &str, max_w: f32, full_w: f32) -> String {
 }
 
 fn kind_color(k: Kind) -> Color32 {
-    match k {
+    let base = match k {
         Kind::Image => Color32::from_rgb(0xbe, 0x96, 0xff),
         Kind::Video => Color32::from_rgb(0xff, 0x78, 0x8c),
         Kind::Audio => Color32::from_rgb(0x78, 0xdc, 0xaa),
@@ -524,7 +606,16 @@ fn kind_color(k: Kind) -> Color32 {
         Kind::Exec => Color32::from_rgb(0xff, 0xa0, 0x5a),
         Kind::Font => Color32::from_rgb(0xc8, 0xb4, 0xff),
         Kind::Model => Color32::from_rgb(0x8c, 0xe6, 0xd2),
-        Kind::Other => DIM,
+        Kind::Other => pal().dim,
+    };
+    if pal().dark {
+        base
+    } else {
+        Color32::from_rgb(
+            (base.r() as f32 * 0.62) as u8,
+            (base.g() as f32 * 0.62) as u8,
+            (base.b() as f32 * 0.62) as u8,
+        )
     }
 }
 
@@ -553,10 +644,6 @@ fn spawn_load() -> LoadRx {
     rx
 }
 
-pub fn current_exe_dir() -> Option<PathBuf> {
-    std::env::current_exe().ok()?.parent().map(|p| p.to_path_buf())
-}
-
 fn fmt_num(n: usize) -> String {
     let s = n.to_string();
     let mut out = String::new();
@@ -567,6 +654,20 @@ fn fmt_num(n: usize) -> String {
         out.push(c);
     }
     out
+}
+
+fn plural_records(n: usize) -> &'static str {
+    let m100 = n % 100;
+    let m10 = n % 10;
+    if (11..=14).contains(&m100) {
+        "записей"
+    } else if m10 == 1 {
+        "запись"
+    } else if (2..=4).contains(&m10) {
+        "записи"
+    } else {
+        "записей"
+    }
 }
 
 fn plural(n: usize) -> &'static str {
@@ -609,18 +710,21 @@ fn open_path(p: &str) {
 }
 
 #[cfg(windows)]
-fn set_dark_titlebar(frame: &eframe::Frame) {
+fn set_dark_titlebar(frame: &eframe::Frame, mica: bool) {
     use raw_window_handle::{HasWindowHandle, RawWindowHandle};
     use windows_sys::Win32::Graphics::Dwm::{DWMWA_USE_IMMERSIVE_DARK_MODE, DwmSetWindowAttribute};
     let Ok(h) = frame.window_handle() else { return };
     if let RawWindowHandle::Win32(w) = h.as_raw() {
         let hwnd = w.hwnd.get() as *mut core::ffi::c_void;
-        let on: i32 = 1;
+        let dark: i32 = if pal().dark { 1 } else { 0 };
+        // DWMWA_SYSTEMBACKDROP_TYPE = 38: 1 = нет, 2 = Mica
+        let backdrop: i32 = if mica { 2 } else { 1 };
         unsafe {
-            DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE as u32, &on as *const _ as *const _, 4);
+            DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE as u32, &dark as *const _ as *const _, 4);
+            DwmSetWindowAttribute(hwnd, 38, &backdrop as *const _ as *const _, 4);
         }
     }
 }
 
 #[cfg(not(windows))]
-fn set_dark_titlebar(_frame: &eframe::Frame) {}
+fn set_dark_titlebar(_frame: &eframe::Frame, _mica: bool) {}

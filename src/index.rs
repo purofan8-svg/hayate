@@ -7,6 +7,8 @@ use std::path::Path;
 use memchr::memmem;
 use rayon::prelude::*;
 
+use crate::settings::{Match, Sort};
+
 pub const MAGIC: &[u8; 8] = b"HAYATE01";
 pub const ATTR_DIR: u8 = 1;
 pub const ATTR_HIDDEN: u8 = 2;
@@ -111,15 +113,26 @@ pub struct Filter {
     pub kinds: Option<u16>,
     /// Расширение с точкой, в нижнем регистре
     pub ext: Option<String>,
+    /// Скрывать скрытые файлы
+    pub hide_hidden: bool,
+    pub match_mode: Match,
+    pub sort: Sort,
 }
 
 impl Filter {
     pub fn any(&self) -> bool {
-        !self.dirs_only && !self.files_only && self.kinds.is_none() && self.ext.is_none()
+        !self.dirs_only
+            && !self.files_only
+            && self.kinds.is_none()
+            && self.ext.is_none()
+            && !self.hide_hidden
     }
 
     #[inline]
     fn accept(&self, attrs: u8, folded: &[u8]) -> bool {
+        if self.hide_hidden && attrs & ATTR_HIDDEN != 0 {
+            return false;
+        }
         let is_dir = attrs & ATTR_DIR != 0;
         if self.dirs_only && !is_dir {
             return false;
@@ -199,6 +212,20 @@ impl Index {
         self.sizes[i]
     }
 
+    fn fpath(&self, i: usize) -> &str {
+        let end = self.fends[i] as usize;
+        let start = if i == 0 { 0 } else { self.fends[i - 1] as usize };
+        &self.fbuf[start..end]
+    }
+
+    fn sort_hits(&self, hits: &mut [usize], sort: Sort) {
+        match sort {
+            Sort::Relevance | Sort::Date => hits.sort_unstable_by(|&a, &b| self.mtimes[b].cmp(&self.mtimes[a])),
+            Sort::Name => hits.sort_unstable_by(|&a, &b| self.fpath(a).cmp(self.fpath(b))),
+            Sort::Size => hits.sort_unstable_by(|&a, &b| self.sizes[b].cmp(&self.sizes[a])),
+        }
+    }
+
     pub fn mtime_at(&self, i: usize) -> i64 {
         self.mtimes[i]
     }
@@ -257,7 +284,7 @@ impl Index {
             // Пустой запрос + фильтр = «покажи все файлы такого типа», свежие сверху
             if !filter.any() {
                 self.collect_filtered(filter, limit.saturating_mul(16), &mut hits);
-                hits.sort_unstable_by(|&a, &b| self.mtimes[b].cmp(&self.mtimes[a]));
+                self.sort_hits(&mut hits, filter.sort);
                 hits.truncate(limit);
             }
             return SearchResult { hits, took: t0.elapsed() };
@@ -274,7 +301,12 @@ impl Index {
             .collect();
 
         let mut raw: Vec<RawHit> = parts.into_iter().flatten().collect();
-        raw.sort_unstable_by(|x, y| y.score.cmp(&x.score).then(x.len.cmp(&y.len)));
+        match filter.sort {
+            Sort::Relevance => raw.sort_unstable_by(|x, y| y.score.cmp(&x.score).then(x.len.cmp(&y.len))),
+            Sort::Name => raw.sort_unstable_by(|x, y| self.fpath(x.idx as usize).cmp(self.fpath(y.idx as usize))),
+            Sort::Size => raw.sort_unstable_by(|x, y| self.sizes[y.idx as usize].cmp(&self.sizes[x.idx as usize])),
+            Sort::Date => raw.sort_unstable_by(|x, y| self.mtimes[y.idx as usize].cmp(&self.mtimes[x.idx as usize])),
+        }
         hits.extend(raw.into_iter().take(limit).map(|h| h.idx as usize));
         SearchResult { hits, took: t0.elapsed() }
     }
@@ -328,6 +360,14 @@ impl Index {
             }
             let name_off = match memrchr_sep(entry) { Some(p) => p + 1, None => 0 };
             let name = &entry[name_off..];
+            let mode_ok = match filter.match_mode {
+                Match::Contains => true,
+                Match::Prefix => name.starts_with(needle),
+                Match::Exact => name == needle,
+            };
+            if !mode_ok {
+                continue;
+            }
 
             let mut score: i32 = if memmem::find(name, needle).is_some() { 1200 } else { 100 };
             if name == needle {
