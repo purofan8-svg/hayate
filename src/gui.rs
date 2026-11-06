@@ -109,12 +109,53 @@ impl Mode {
     }
 }
 
+struct CapWorker {
+    rx: std::sync::mpsc::Receiver<(Vec<u8>, u32, u32)>,
+    stop: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    hwnd: isize,
+}
+
+impl Drop for CapWorker {
+    fn drop(&mut self) {
+        self.stop.store(false, std::sync::atomic::Ordering::Relaxed);
+        #[cfg(windows)]
+        crate::capture::exclude_from_capture(self.hwnd as *mut core::ffi::c_void, false);
+    }
+}
+
+fn spawn_capture(hwnd: isize) -> CapWorker {
+    let (tx, rx) = std::sync::mpsc::channel();
+    let stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(true));
+    let stop2 = stop.clone();
+    std::thread::spawn(move || {
+        use std::sync::atomic::Ordering;
+        while stop2.load(Ordering::Relaxed) {
+            let h = hwnd as *mut core::ffi::c_void;
+            if let Some((x, y, w, hh)) = client_rect_screen(h) {
+                let t0 = std::time::Instant::now();
+                let grabbed = crate::capture::grab_blurred(x, y, w, hh, 160, 96, 3.5);
+                if std::env::var_os("HAYATE_DEBUG_CAP").is_some() {
+                    eprintln!("grab {:?}", t0.elapsed());
+                }
+                if let Some(frame) = grabbed {
+                    if tx.send(frame).is_err() {
+                        break;
+                    }
+                }
+            }
+            std::thread::sleep(std::time::Duration::from_millis(200));
+        }
+    });
+    CapWorker { rx, stop, hwnd }
+}
+
 struct App {
     load: Load,
     wall: Option<egui::TextureHandle>,
     wall_key: Option<crate::settings::Backdrop>,
     acr: Option<egui::TextureHandle>,
-    last_grab: std::time::Instant,
+    cap: Option<CapWorker>,
+    boost_until: f64,
     query: String,
     mode: Mode,
     results: Vec<usize>,
@@ -146,7 +187,8 @@ impl App {
             wall,
             wall_key,
             acr: None,
-            last_grab: std::time::Instant::now(),
+            cap: None,
+            boost_until: 0.0,
             query: String::new(),
             mode: Mode::All,
             results: Vec::new(),
@@ -243,26 +285,36 @@ impl eframe::App for App {
             self.refresh();
         }
 
-        // Акрил: снимаем, что за окном, и размываем
-        if self.st.backdrop == crate::settings::Backdrop::Acrylic {
-            // интерфейс рисуем на полной частоте, а экран снимаем реже
-            ctx.request_repaint();
-            if self.last_grab.elapsed() > Duration::from_millis(60) {
-                if let Some(h) = hwnd_of(frame) {
-                    if let Some((x, y, w, hh)) = client_rect_screen(h) {
-                        crate::capture::exclude_from_capture(h, true);
-                        if let Some((px, tw, th)) = crate::capture::grab_blurred(x, y, w, hh, 200, 120, 5.0) {
-                            let img = egui::ColorImage::from_rgba_unmultiplied([tw as usize, th as usize], &px);
+        // Акрил: блюр фона в отдельном потоке, только если фон не сплошной
+                let want_cap = self.st.backdrop == crate::settings::Backdrop::Acrylic && self.st.opacity < 0.98;
+                if want_cap {
+                    if self.cap.is_none() {
+                        if let Some(h) = hwnd_of(frame) {
+                            crate::capture::exclude_from_capture(h, true);
+                            self.cap = Some(spawn_capture(h as isize));
+                        }
+                    }
+                    if let Some(cap) = &self.cap {
+                        let mut latest = None;
+                        while let Ok(f) = cap.rx.try_recv() {
+                            latest = Some(f);
+                        }
+                        if let Some((px, w, h)) = latest {
+                            let img = egui::ColorImage::from_rgba_unmultiplied([w as usize, h as usize], &px);
                             self.acr = Some(ctx.load_texture("acr", img, egui::TextureOptions::LINEAR));
                         }
-                        crate::capture::exclude_from_capture(h, false);
                     }
-                }
-                self.last_grab = std::time::Instant::now();
+                    // 60 к/с только на время ввода, в покое — 8 к/с, чтобы не жечь CPU
+            let (now, input) = ctx.input(|i| (i.time, !i.events.is_empty() || i.pointer.any_down()));
+            if input {
+                self.boost_until = now + 0.25;
             }
-        } else if self.acr.is_some() {
-            self.acr = None;
-        }
+            let active = now < self.boost_until;
+            ctx.request_repaint_after(Duration::from_millis(if active { 16 } else { 120 }));
+                } else {
+                    self.cap = None; // drop останавливает поток и снимает исключение из захвата
+                    self.acr = None;
+                }
 
         // запоминаем размер окна (не чаще раза в секунду)
         if let Some(r) = ctx.input(|i| i.viewport().inner_rect) {

@@ -7,7 +7,7 @@ pub fn grab_blurred(x: i32, y: i32, w: i32, h: i32, out_w: i32, out_h: i32, radi
     use std::ffi::c_void;
     use windows_sys::Win32::Graphics::Gdi::{
         BI_RGB, BITMAPINFO, BITMAPINFOHEADER, CreateCompatibleDC, CreateDIBSection, DIB_RGB_COLORS, DeleteDC,
-        DeleteObject, GetDC, HALFTONE, ReleaseDC, SRCCOPY, SelectObject, SetBrushOrgEx, SetStretchBltMode, StretchBlt,
+        DeleteObject, GetDC, COLORONCOLOR, ReleaseDC, SRCCOPY, SelectObject, SetBrushOrgEx, SetStretchBltMode, StretchBlt,
     };
 
     if w <= 0 || h <= 0 || out_w <= 0 || out_h <= 0 {
@@ -41,7 +41,7 @@ pub fn grab_blurred(x: i32, y: i32, w: i32, h: i32, out_w: i32, out_h: i32, radi
         }
         let old = SelectObject(mem, dib);
 
-        SetStretchBltMode(mem, HALFTONE);
+        SetStretchBltMode(mem, COLORONCOLOR);
         SetBrushOrgEx(mem, 0, 0, std::ptr::null_mut());
         let ok = StretchBlt(mem, 0, 0, out_w, out_h, screen, x, y, w, h, SRCCOPY);
 
