@@ -246,6 +246,13 @@ impl eframe::App for App {
 
         let wall_id = self.wall.as_ref().map(|t| t.id());
         let bg = pal().bg;
+        if let Some(id) = wall_id {
+            // обои и тонировка — на самый нижний слой, на всю площадь окна
+            let p = ctx.layer_painter(egui::LayerId::background());
+            let r = ctx.screen_rect();
+            p.image(id, r, Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)), Color32::WHITE);
+            p.rect_filled(r, 0.0, bg);
+        }
         egui::CentralPanel::default()
             .frame(
                 egui::Frame::none()
@@ -253,11 +260,6 @@ impl eframe::App for App {
                     .inner_margin(Margin::same(16.0)),
             )
             .show(ctx, |ui| {
-                if let Some(id) = wall_id {
-                    let r = ui.max_rect();
-                    ui.painter().image(id, r, Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)), Color32::WHITE);
-                    ui.painter().rect_filled(r, 0.0, bg);
-                }
                 self.header(ui, ctx);
                 ui.add_space(12.0);
                 let failed = match &self.load { Load::Failed(m) => Some(m.clone()), _ => None };
@@ -752,6 +754,10 @@ fn set_dark_titlebar(frame: &eframe::Frame, backdrop: crate::settings::Backdrop)
         // Mica через DWM; акрил делаем ниже через композицию
         let sys: i32 = if backdrop == Backdrop::Mica { 2 } else { 1 };
         DwmSetWindowAttribute(hwnd, 38, &sys as *const _ as *const _, 4);
+        // рамка окна в цвет фона, иначе на прозрачном фоне светится белая полоса
+        let c = pal().bg;
+        let colorref: u32 = ((c.b() as u32) << 16) | ((c.g() as u32) << 8) | (c.r() as u32);
+        DwmSetWindowAttribute(hwnd, 34, &colorref as *const _ as *const _, 4);
     }
 
     // системный акрил на Win11 25H2 заливает окно тёмным материалом — не используем
