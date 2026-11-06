@@ -112,6 +112,7 @@ impl Mode {
 struct App {
     load: Load,
     wall: Option<egui::TextureHandle>,
+    wall_key: Option<crate::settings::Backdrop>,
     acr: Option<egui::TextureHandle>,
     last_grab: std::time::Instant,
     query: String,
@@ -139,9 +140,11 @@ impl App {
             false => Load::Failed("Индекс ещё не построен".into()),
         };
         let wall = load_wall(&cc.egui_ctx, &st);
+        let wall_key = Some(st.backdrop);
         App {
             load,
             wall,
+            wall_key,
             acr: None,
             last_grab: std::time::Instant::now(),
             query: String::new(),
@@ -226,7 +229,11 @@ impl eframe::App for App {
         if self.style_dirty {
             apply_style(ctx, &self.st);
             set_dark_titlebar(frame, self.st.backdrop);
-            self.wall = load_wall(ctx, &self.st);
+            // обои перечитываем только при смене подложки, а не на каждый тик ползунка
+            if self.wall_key != Some(self.st.backdrop) {
+                self.wall = load_wall(ctx, &self.st);
+                self.wall_key = Some(self.st.backdrop);
+            }
             self.style_dirty = false;
             self.dirty = true;
             ctx.request_repaint();
@@ -238,7 +245,9 @@ impl eframe::App for App {
 
         // Акрил: снимаем, что за окном, и размываем
         if self.st.backdrop == crate::settings::Backdrop::Acrylic {
-            if self.last_grab.elapsed() > Duration::from_millis(120) {
+            // интерфейс рисуем на полной частоте, а экран снимаем реже
+            ctx.request_repaint();
+            if self.last_grab.elapsed() > Duration::from_millis(60) {
                 if let Some(h) = hwnd_of(frame) {
                     if let Some((x, y, w, hh)) = client_rect_screen(h) {
                         crate::capture::exclude_from_capture(h, true);
@@ -250,7 +259,6 @@ impl eframe::App for App {
                     }
                 }
                 self.last_grab = std::time::Instant::now();
-                ctx.request_repaint_after(Duration::from_millis(130));
             }
         } else if self.acr.is_some() {
             self.acr = None;
@@ -309,9 +317,14 @@ impl eframe::App for App {
             let before = self.st.clone();
             crate::settings_ui::window(ctx, &mut self.st, &mut self.show_settings);
             if before != self.st {
-                self.st.save();
                 self.style_dirty = true;
                 self.dirty = true;
+                // на диск пишем не чаще 2 раз в секунду или по отпусканию мыши
+                let released = ctx.input(|i| i.pointer.any_released());
+                if released || self.last_save.elapsed() > Duration::from_millis(400) {
+                    self.st.save();
+                    self.last_save = std::time::Instant::now();
+                }
             }
         }
 
