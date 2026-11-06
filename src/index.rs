@@ -254,9 +254,11 @@ impl Index {
             return SearchResult { hits, took: t0.elapsed() };
         }
         if q.is_empty() {
-            // Пустой запрос + фильтр = «покажи все файлы такого типа»
+            // Пустой запрос + фильтр = «покажи все файлы такого типа», свежие сверху
             if !filter.any() {
-                self.collect_filtered(filter, limit, &mut hits);
+                self.collect_filtered(filter, limit.saturating_mul(16), &mut hits);
+                hits.sort_unstable_by(|&a, &b| self.mtimes[b].cmp(&self.mtimes[a]));
+                hits.truncate(limit);
             }
             return SearchResult { hits, took: t0.elapsed() };
         }

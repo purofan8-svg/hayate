@@ -21,6 +21,15 @@ const FILE_ATTRIBUTE_REPARSE_POINT: u32 = 0x400;
 
 pub fn scan(roots: &[PathBuf], excludes: &[String]) -> (Index, ScanStats) {
     let t0 = Instant::now();
+    // На Windows приводим разделители в корнях к '\', иначе пути смешанные
+    #[cfg(windows)]
+    let roots: Vec<PathBuf> = roots
+        .iter()
+        .map(|p| PathBuf::from(p.to_string_lossy().replace('/', "\\")))
+        .collect();
+    #[cfg(not(windows))]
+    let roots: Vec<PathBuf> = roots.to_vec();
+
     let mut main = Index::default();
     main.roots = roots.iter().map(|p| p.display().to_string()).collect();
     let mut entries = 0u64;

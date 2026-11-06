@@ -180,10 +180,11 @@ fn draw(f: &mut Frame, app: &App) {
             let is_dir = app.ix.is_dir(i);
             let (tag, color) = if is_dir { ("папка", ACCENT) } else { (app.ix.kind_at(i).name(), tag_color(app.ix.kind_at(i))) };
             let path = app.ix.path_at(i);
+            let size = if is_dir { "—".to_string() } else { human(app.ix.size_at(i)) };
             let line = Line::from(vec![
                 Span::styled(format!("{:<11}", tag), Style::default().fg(color)),
                 Span::styled(path.to_string(), Style::default()),
-                Span::styled(format!("  {}", human(app.ix.size_at(i))), Style::default().fg(DIM)),
+                Span::styled(format!("  {size}"), Style::default().fg(DIM)),
             ]);
             ListItem::new(line)
         })

@@ -102,7 +102,8 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             } else {
                 for &i in &r.hits {
                     let tag = if ix.is_dir(i) { "папка".to_string() } else { ix.kind_at(i).name().to_string() };
-                    println!("{:<10} {:>9}  {}", tag, human(ix.size_at(i)), ix.path_at(i));
+                    let size = if ix.is_dir(i) { "—".to_string() } else { human(ix.size_at(i)) };
+                    println!("{:<10} {:>9}  {}", tag, size, ix.path_at(i));
                 }
                 println!("── {} результатов за {:.2} мс", r.hits.len(), r.took.as_secs_f64() * 1000.0);
             }
