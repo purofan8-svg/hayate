@@ -639,10 +639,10 @@ fn kind_color(k: Kind) -> Color32 {
 
 fn load_wall(ctx: &egui::Context, st: &Settings) -> Option<egui::TextureHandle> {
     use crate::settings::Backdrop;
+    // обои только для Mica; Акрил — честная прозрачность к тому, что за окном
     let (side, radius) = match st.backdrop {
-        Backdrop::None => return None,
+        Backdrop::None | Backdrop::Acrylic => return None,
         Backdrop::Mica => (96u32, 5.0f32),
-        Backdrop::Acrylic => (64, 10.0),
     };
     let (px, w, h) = crate::wallpaper::blurred(side, radius)?;
     let img = egui::ColorImage::from_rgba_unmultiplied([w as usize, h as usize], &px);

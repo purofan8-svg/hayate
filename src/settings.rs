@@ -124,8 +124,8 @@ impl Backdrop {
 
     pub fn name(self) -> &'static str {
         match self {
-            Backdrop::None => "Нет",
-            Backdrop::Mica => "Mica",
+            Backdrop::None => "Сплошной",
+                        Backdrop::Mica => "Mica",
             Backdrop::Acrylic => "Акрил",
         }
     }
@@ -215,8 +215,11 @@ fn rgba(rgb: (u8, u8, u8), a: f32) -> Color32 {
 
 pub fn palette(s: &Settings) -> Palette {
     let (ar, ag, ab) = s.accent.rgb();
-    let a = s.opacity.clamp(0.2, 1.0);
-    let a_surface = (a + 0.30).min(1.0);
+    let a = match s.backdrop {
+            Backdrop::None => 1.0,
+            _ => s.opacity.clamp(0.2, 1.0),
+        };
+        let a_surface = (a + 0.30).min(1.0);
     match s.theme {
         Theme::Dark => Palette {
             bg: rgba((0x17, 0x17, 0x1b), a),
