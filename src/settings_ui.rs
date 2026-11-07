@@ -5,25 +5,30 @@ use eframe::egui::{
 };
 
 use crate::lang;
-use crate::settings::{Accent, Backdrop, Density, Match, Settings, Sort, Theme, pal};
 use crate::lang::Lang;
+use crate::settings::{Accent, Backdrop, Density, Match, Settings, Sort, Theme, pal};
 
 pub fn window(ctx: &egui::Context, st: &mut Settings, open: &mut bool) {
     let mut is_open = *open;
-    egui::Window::new(RichText::new(lang::t("Settings")).size(15.0).strong().color(pal().text))
-        .open(&mut is_open)
-        .collapsible(false)
-        .resizable(false)
-        .anchor(egui::Align2::CENTER_CENTER, vec2(0.0, 0.0))
-        .default_width(400.0)
-        .frame(
-            egui::Frame::none()
-                .fill(solid(pal().surface))
-                .rounding(Rounding::same(14.0))
-                .stroke(Stroke::new(1.0_f32, pal().border))
-                .inner_margin(Margin::same(18.0)),
-        )
-        .show(ctx, |ui| body(ui, st));
+    egui::Window::new(
+        RichText::new(lang::t("Settings"))
+            .size(15.0)
+            .strong()
+            .color(pal().text),
+    )
+    .open(&mut is_open)
+    .collapsible(false)
+    .resizable(false)
+    .anchor(egui::Align2::CENTER_CENTER, vec2(0.0, 0.0))
+    .default_width(400.0)
+    .frame(
+        egui::Frame::none()
+            .fill(solid(pal().surface))
+            .rounding(Rounding::same(14.0))
+            .stroke(Stroke::new(1.0_f32, pal().border))
+            .inner_margin(Margin::same(18.0)),
+    )
+    .show(ctx, |ui| body(ui, st));
     *open = is_open;
 }
 
@@ -41,7 +46,14 @@ fn body(ui: &mut egui::Ui, st: &mut Settings) {
         combo(ui, "lang", &mut st.lang, &opts);
     });
     row(ui, lang::t("Theme"), |ui| {
-        segmented(ui, &mut st.theme, &[(Theme::Dark, lang::t("Dark")), (Theme::Light, lang::t("Light"))]);
+        segmented(
+            ui,
+            &mut st.theme,
+            &[
+                (Theme::Dark, lang::t("Dark")),
+                (Theme::Light, lang::t("Light")),
+            ],
+        );
     });
     row(ui, lang::t("Accent"), |ui| {
         ui.horizontal(|ui| {
@@ -54,7 +66,14 @@ fn body(ui: &mut egui::Ui, st: &mut Settings) {
     });
     row(ui, lang::t("Background opacity"), |ui| {
         let mut pct = (st.opacity * 100.0).round();
-        if ui.add(egui::Slider::new(&mut pct, 20.0..=100.0).suffix(" %").show_value(true)).changed() {
+        if ui
+            .add(
+                egui::Slider::new(&mut pct, 20.0..=100.0)
+                    .suffix(" %")
+                    .show_value(true),
+            )
+            .changed()
+        {
             st.opacity = pct / 100.0;
         }
     });
@@ -68,7 +87,11 @@ fn body(ui: &mut egui::Ui, st: &mut Settings) {
         segmented(
             ui,
             &mut st.density,
-            &[(Density::Compact, lang::t("Compact")), (Density::Normal, lang::t("Normal")), (Density::Relaxed, lang::t("Relaxed"))],
+            &[
+                (Density::Compact, lang::t("Compact")),
+                (Density::Normal, lang::t("Normal")),
+                (Density::Relaxed, lang::t("Relaxed")),
+            ],
         );
     });
     row(ui, lang::t("Show hidden"), |ui| {
@@ -79,7 +102,14 @@ fn body(ui: &mut egui::Ui, st: &mut Settings) {
     });
     row(ui, lang::t("Result limit"), |ui| {
         let mut lim = st.limit as f32;
-        if ui.add(egui::Slider::new(&mut lim, 50.0..=2000.0).step_by(50.0).integer()).changed() {
+        if ui
+            .add(
+                egui::Slider::new(&mut lim, 50.0..=2000.0)
+                    .step_by(50.0)
+                    .integer(),
+            )
+            .changed()
+        {
             st.limit = lim as usize;
         }
     });
@@ -89,11 +119,19 @@ fn body(ui: &mut egui::Ui, st: &mut Settings) {
 
     section(ui, lang::t("SEARCH"));
     row(ui, lang::t("Match"), |ui| {
-        combo(ui, "match", &mut st.match_mode, &Match::ALL.map(|m| (m, m.name())));
+        combo(
+            ui,
+            "match",
+            &mut st.match_mode,
+            &Match::ALL.map(|m| (m, m.name())),
+        );
     });
     row(ui, lang::t("Interface scale"), |ui| {
         let mut sc = st.font_scale;
-        if ui.add(egui::Slider::new(&mut sc, 0.85..=1.3).step_by(0.05)).changed() {
+        if ui
+            .add(egui::Slider::new(&mut sc, 0.85..=1.3).step_by(0.05))
+            .changed()
+        {
             st.font_scale = sc;
         }
     });
@@ -110,7 +148,11 @@ fn body(ui: &mut egui::Ui, st: &mut Settings) {
             st.window = window;
         }
         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-            ui.label(RichText::new(settings_path_hint()).size(10.5).color(pal().dim));
+            ui.label(
+                RichText::new(settings_path_hint())
+                    .size(10.5)
+                    .color(pal().dim),
+            );
         });
     });
 }
@@ -150,11 +192,17 @@ fn segmented<T: PartialEq + Copy>(ui: &mut egui::Ui, value: &mut T, opts: &[(T, 
                         + 18.0;
                     let (rect, resp) = ui.allocate_exact_size(vec2(w, 24.0), Sense::click());
                     if sel {
-                        ui.painter().rect_filled(rect, Rounding::same(6.0), pal().surface);
+                        ui.painter()
+                            .rect_filled(rect, Rounding::same(6.0), pal().surface);
                     }
                     let color = if sel { pal().text } else { pal().dim };
-                    let g = ui.painter().layout_no_wrap(label.to_string(), FontId::proportional(12.0), color);
-                    ui.painter().galley(rect.center() - g.rect.size() / 2.0, g, color);
+                    let g = ui.painter().layout_no_wrap(
+                        label.to_string(),
+                        FontId::proportional(12.0),
+                        color,
+                    );
+                    ui.painter()
+                        .galley(rect.center() - g.rect.size() / 2.0, g, color);
                     if resp.clicked() && !sel {
                         *value = *v;
                         changed = true;
@@ -171,8 +219,13 @@ fn toggle(ui: &mut egui::Ui, on: &mut bool) -> bool {
     let bg = if *on { pal().accent } else { pal().surface_hi };
     ui.painter().rect_filled(rect, Rounding::same(10.0), bg);
     let cx = rect.left() + 10.0 + t * (rect.width() - 20.0);
-    let knob = if pal().dark { Color32::from_rgb(0x14, 0x14, 0x18) } else { Color32::WHITE };
-    ui.painter().circle_filled(pos2(cx, rect.center().y), 7.0, knob);
+    let knob = if pal().dark {
+        Color32::from_rgb(0x14, 0x14, 0x18)
+    } else {
+        Color32::WHITE
+    };
+    ui.painter()
+        .circle_filled(pos2(cx, rect.center().y), 7.0, knob);
     if resp.clicked() {
         *on = !*on;
         return true;
@@ -186,21 +239,30 @@ fn swatch(ui: &mut egui::Ui, a: Accent, selected: bool) -> bool {
     let c = Color32::from_rgb(r, g, b);
     ui.painter().circle_filled(rect.center(), 8.0, c);
     if selected {
-        ui.painter().circle_stroke(rect.center(), 10.0, Stroke::new(1.6_f32, pal().text));
+        ui.painter()
+            .circle_stroke(rect.center(), 10.0, Stroke::new(1.6_f32, pal().text));
     } else if resp.hovered() {
-        ui.painter().circle_stroke(rect.center(), 10.0, Stroke::new(1.0_f32, pal().dim));
+        ui.painter()
+            .circle_stroke(rect.center(), 10.0, Stroke::new(1.0_f32, pal().dim));
     }
     resp.on_hover_text(a.name()).clicked()
 }
 
 fn combo<T: PartialEq + Copy>(ui: &mut egui::Ui, id: &str, value: &mut T, opts: &[(T, &str)]) {
-    let current = opts.iter().find(|(v, _)| v == value).map(|(_, l)| *l).unwrap_or("—");
+    let current = opts
+        .iter()
+        .find(|(v, _)| v == value)
+        .map(|(_, l)| *l)
+        .unwrap_or("—");
     egui::ComboBox::from_id_salt(id)
         .selected_text(RichText::new(current).size(12.0).color(pal().text))
         .width(170.0)
         .show_ui(ui, |ui| {
             for (v, label) in opts {
-                if ui.selectable_label(*value == *v, RichText::new(*label).size(12.0)).clicked() {
+                if ui
+                    .selectable_label(*value == *v, RichText::new(*label).size(12.0))
+                    .clicked()
+                {
                     *value = *v;
                 }
             }

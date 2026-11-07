@@ -25,8 +25,15 @@ pub enum Accent {
 }
 
 impl Accent {
-    pub const ALL: [Accent; 7] =
-        [Accent::Blue, Accent::Teal, Accent::Green, Accent::Purple, Accent::Orange, Accent::Pink, Accent::Red];
+    pub const ALL: [Accent; 7] = [
+        Accent::Blue,
+        Accent::Teal,
+        Accent::Green,
+        Accent::Purple,
+        Accent::Orange,
+        Accent::Pink,
+        Accent::Red,
+    ];
 
     pub fn rgb(self) -> (u8, u8, u8) {
         match self {
@@ -127,11 +134,10 @@ impl Backdrop {
     pub fn name(self) -> &'static str {
         match self {
             Backdrop::None => "Сплошной",
-                        Backdrop::Mica => "Mica",
+            Backdrop::Mica => "Mica",
             Backdrop::Acrylic => "Акрил",
         }
     }
-
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -142,7 +148,7 @@ pub struct Settings {
     /// Непрозрачность окна, 0.55–1.0
     pub opacity: f32,
     /// Системная подложка окна
-        pub backdrop: Backdrop,
+    pub backdrop: Backdrop,
     pub density: Density,
     /// Язык интерфейса
     pub lang: Lang,
@@ -221,21 +227,21 @@ fn rgba(rgb: (u8, u8, u8), a: f32) -> Color32 {
 pub fn palette(s: &Settings) -> Palette {
     let (ar, ag, ab) = s.accent.rgb();
     let a = match s.backdrop {
-            Backdrop::None => 1.0,
-            _ => s.opacity.clamp(0.2, 1.0),
-        };
-        let a_surface = (a + 0.30).min(1.0);
+        Backdrop::None => 1.0,
+        _ => s.opacity.clamp(0.2, 1.0),
+    };
+    let a_surface = (a + 0.30).min(1.0);
     match s.theme {
         Theme::Dark => Palette {
             bg: rgba((0x17, 0x17, 0x1b), a),
-                        surface: rgba((0x23, 0x23, 0x29), a_surface),
-                        surface_hi: rgba((0x2d, 0x2d, 0x35), a_surface),
-                        hover: rgba((0x33, 0x33, 0x3c), a_surface),
-                        text: Color32::from_rgb(0xf2, 0xf2, 0xf5),
-                        dim: Color32::from_rgb(0x9a, 0x9a, 0xa6),
-                        accent: Color32::from_rgb(ar, ag, ab),
-                        accent_soft: rgba((ar, ag, ab), 0.20),
-                        border: rgba((0x3a, 0x3a, 0x45), a_surface),
+            surface: rgba((0x23, 0x23, 0x29), a_surface),
+            surface_hi: rgba((0x2d, 0x2d, 0x35), a_surface),
+            hover: rgba((0x33, 0x33, 0x3c), a_surface),
+            text: Color32::from_rgb(0xf2, 0xf2, 0xf5),
+            dim: Color32::from_rgb(0x9a, 0x9a, 0xa6),
+            accent: Color32::from_rgb(ar, ag, ab),
+            accent_soft: rgba((ar, ag, ab), 0.20),
+            border: rgba((0x3a, 0x3a, 0x45), a_surface),
             dark: true,
         },
         Theme::Light => Palette {

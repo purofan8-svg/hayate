@@ -24,7 +24,6 @@ strip = true
 clap = { version = "4", features = ["derive"] }
 crossterm = "0.28"
 eframe = "0.29"
-jwalk = "0.8"
 memchr = "2"
 ratatui = "0.29"
 rayon = "1"

@@ -6,8 +6,8 @@ use std::time::Duration;
 
 use eframe::egui;
 use egui::{
-    Align, Color32, FontData, FontDefinitions, FontFamily, FontId, Layout, Margin, Rect,
-    RichText, Rounding, Sense, Stroke, pos2, vec2,
+    Align, Color32, FontData, FontDefinitions, FontFamily, FontId, Layout, Margin, Rect, RichText,
+    Rounding, Sense, Stroke, pos2, vec2,
 };
 
 use crate::index::{Filter, Index, Kind};
@@ -22,7 +22,11 @@ fn apply_style(ctx: &egui::Context, st: &Settings) {
     settings::set_row_h(st.density.row_height());
     settings::set_show_sizes(st.show_sizes);
 
-    let mut v = if p.dark { egui::Visuals::dark() } else { egui::Visuals::light() };
+    let mut v = if p.dark {
+        egui::Visuals::dark()
+    } else {
+        egui::Visuals::light()
+    };
     v.panel_fill = p.bg;
     v.window_fill = p.surface;
     v.extreme_bg_color = p.surface_hi;
@@ -52,15 +56,27 @@ pub fn run() -> eframe::Result<()> {
     if let Some(icon) = app_icon() {
         vp = vp.with_icon(icon);
     }
-    let opts = eframe::NativeOptions { viewport: vp, vsync: true, ..Default::default() };
-    eframe::run_native("hayate", opts, Box::new(move |cc| Ok(Box::new(App::new(cc, st)))))
+    let opts = eframe::NativeOptions {
+        viewport: vp,
+        vsync: true,
+        ..Default::default()
+    };
+    eframe::run_native(
+        "hayate",
+        opts,
+        Box::new(move |cc| Ok(Box::new(App::new(cc, st)))),
+    )
 }
 
 fn app_icon() -> Option<egui::IconData> {
     let bytes = include_bytes!("../assets/icon.png");
     let img = image::load_from_memory(bytes).ok()?.to_rgba8();
     let (width, height) = img.dimensions();
-    Some(egui::IconData { rgba: img.into_raw(), width, height })
+    Some(egui::IconData {
+        rgba: img.into_raw(),
+        width,
+        height,
+    })
 }
 
 type LoadRx = Receiver<Result<Arc<Index>, String>>;
@@ -86,28 +102,38 @@ impl Mode {
             Mode::Dirs => lang::t("Folders").into(),
             Mode::Files => lang::t("Files").into(),
             Mode::Kind(k) => match k {
-                            Kind::Image => lang::t("Photos").into(),
-                            Kind::Doc => lang::t("Docs").into(),
-                            Kind::Exec => "EXE".into(),
-                            Kind::Model => lang::t("3D").into(),
-                            _ => {
-                                let n = k.name();
-                                let mut c = n.chars();
-                                match c.next() {
-                                    Some(f) => f.to_uppercase().collect::<String>() + c.as_str(),
-                                    None => String::new(),
-                                }
-                            }
-                        },
+                Kind::Image => lang::t("Photos").into(),
+                Kind::Doc => lang::t("Docs").into(),
+                Kind::Exec => "EXE".into(),
+                Kind::Model => lang::t("3D").into(),
+                _ => {
+                    let n = k.name();
+                    let mut c = n.chars();
+                    match c.next() {
+                        Some(f) => f.to_uppercase().collect::<String>() + c.as_str(),
+                        None => String::new(),
+                    }
+                }
+            },
         }
     }
 
     fn filter(self) -> Filter {
         match self {
             Mode::All => Filter::default(),
-            Mode::Dirs => Filter { dirs_only: true, ..Default::default() },
-            Mode::Files => Filter { files_only: true, ..Default::default() },
-            Mode::Kind(k) => Filter { files_only: true, kinds: Some(k.bit()), ..Default::default() },
+            Mode::Dirs => Filter {
+                dirs_only: true,
+                ..Default::default()
+            },
+            Mode::Files => Filter {
+                files_only: true,
+                ..Default::default()
+            },
+            Mode::Kind(k) => Filter {
+                files_only: true,
+                kinds: Some(k.bit()),
+                ..Default::default()
+            },
         }
     }
 
@@ -144,12 +170,8 @@ fn spawn_capture(hwnd: isize) -> CapWorker {
                 // исключаем окно из захвата только на время снимка,
                 // иначе hayate пропадает со скриншотов и шаринга экрана
                 crate::capture::exclude_from_capture(h, true);
-                let t0 = std::time::Instant::now();
                 let grabbed = crate::capture::grab_blurred(x, y, w, hh, 160, 96, 3.5);
                 crate::capture::exclude_from_capture(h, false);
-                if std::env::var_os("HAYATE_DEBUG_CAP").is_some() {
-                    eprintln!("grab {:?}", t0.elapsed());
-                }
                 if let Some(frame) = grabbed {
                     if tx.send(frame).is_err() {
                         break;
@@ -264,7 +286,9 @@ impl eframe::App for App {
                     self.dirty = true;
                 }
                 Ok(Err(e)) => self.load = Load::Failed(e),
-                Err(std::sync::mpsc::TryRecvError::Empty) => ctx.request_repaint_after(Duration::from_millis(40)),
+                Err(std::sync::mpsc::TryRecvError::Empty) => {
+                    ctx.request_repaint_after(Duration::from_millis(40))
+                }
                 Err(_) => self.load = Load::Failed("поток загрузки упал".into()),
             }
         }
@@ -299,35 +323,38 @@ impl eframe::App for App {
         }
 
         // Акрил: блюр фона в отдельном потоке, только если фон не сплошной
-                let want_cap = self.st.backdrop == crate::settings::Backdrop::Acrylic && self.st.opacity < 0.98;
-                if want_cap {
-                    if self.cap.is_none() {
-                        if let Some(h) = hwnd_of(frame) {
-                            crate::capture::exclude_from_capture(h, true);
-                            self.cap = Some(spawn_capture(h as isize));
-                        }
-                    }
-                    if let Some(cap) = &self.cap {
-                        let mut latest = None;
-                        while let Ok(f) = cap.rx.try_recv() {
-                            latest = Some(f);
-                        }
-                        if let Some((px, w, h)) = latest {
-                            let img = egui::ColorImage::from_rgba_unmultiplied([w as usize, h as usize], &px);
-                            self.acr = Some(ctx.load_texture("acr", img, egui::TextureOptions::LINEAR));
-                        }
-                    }
-                    // 60 к/с только на время ввода, в покое — 8 к/с, чтобы не жечь CPU
-            let (now, input) = ctx.input(|i| (i.time, !i.events.is_empty() || i.pointer.any_down()));
+        let want_cap =
+            self.st.backdrop == crate::settings::Backdrop::Acrylic && self.st.opacity < 0.98;
+        if want_cap {
+            if self.cap.is_none() {
+                if let Some(h) = hwnd_of(frame) {
+                    crate::capture::exclude_from_capture(h, true);
+                    self.cap = Some(spawn_capture(h as isize));
+                }
+            }
+            if let Some(cap) = &self.cap {
+                let mut latest = None;
+                while let Ok(f) = cap.rx.try_recv() {
+                    latest = Some(f);
+                }
+                if let Some((px, w, h)) = latest {
+                    let img =
+                        egui::ColorImage::from_rgba_unmultiplied([w as usize, h as usize], &px);
+                    self.acr = Some(ctx.load_texture("acr", img, egui::TextureOptions::LINEAR));
+                }
+            }
+            // 60 к/с только на время ввода, в покое — 8 к/с, чтобы не жечь CPU
+            let (now, input) =
+                ctx.input(|i| (i.time, !i.events.is_empty() || i.pointer.any_down()));
             if input {
                 self.boost_until = now + 0.25;
             }
             let active = now < self.boost_until;
             ctx.request_repaint_after(Duration::from_millis(if active { 16 } else { 120 }));
-                } else {
-                    self.cap = None; // drop останавливает поток и снимает исключение из захвата
-                    self.acr = None;
-                }
+        } else {
+            self.cap = None; // drop останавливает поток и снимает исключение из захвата
+            self.acr = None;
+        }
 
         // запоминаем размер окна (не чаще раза в секунду)
         if let Some(r) = ctx.input(|i| i.viewport().inner_rect) {
@@ -344,25 +371,44 @@ impl eframe::App for App {
         let wall_id = self.wall.as_ref().map(|t| t.id());
         let acr_id = self.acr.as_ref().map(|t| t.id());
         let bg = pal().bg;
-        let bg_tex = if self.st.backdrop == crate::settings::Backdrop::Acrylic { acr_id } else { wall_id };
+        let bg_tex = if self.st.backdrop == crate::settings::Backdrop::Acrylic {
+            acr_id
+        } else {
+            wall_id
+        };
         if let Some(id) = bg_tex {
             // обои и тонировка — на самый нижний слой, на всю площадь окна
             let p = ctx.layer_painter(egui::LayerId::background());
             let r = ctx.screen_rect();
-            p.image(id, r, Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)), Color32::WHITE);
+            p.image(
+                id,
+                r,
+                Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)),
+                Color32::WHITE,
+            );
             p.rect_filled(r, 0.0, bg);
         }
         egui::CentralPanel::default()
             .frame(
                 egui::Frame::none()
-                    .fill(if bg_tex.is_some() { Color32::TRANSPARENT } else { bg })
+                    .fill(if bg_tex.is_some() {
+                        Color32::TRANSPARENT
+                    } else {
+                        bg
+                    })
                     .inner_margin(Margin::same(16.0)),
             )
             .show(ctx, |ui| {
                 self.header(ui, ctx);
                 ui.add_space(12.0);
-                let failed = match &self.load { Load::Failed(m) => Some(m.clone()), _ => None };
-                let ready = match &self.load { Load::Ready(ix) => Some(ix.clone()), _ => None };
+                let failed = match &self.load {
+                    Load::Failed(m) => Some(m.clone()),
+                    _ => None,
+                };
+                let ready = match &self.load {
+                    Load::Ready(ix) => Some(ix.clone()),
+                    _ => None,
+                };
                 if let Some(msg) = failed {
                     self.empty_state(ui, &msg);
                 } else if let Some(ix) = ready {
@@ -372,7 +418,11 @@ impl eframe::App for App {
                 } else {
                     ui.add_space(40.0);
                     ui.vertical_centered(|ui| {
-                        ui.label(RichText::new(lang::t("Loading index…")).size(15.0).color(pal().dim));
+                        ui.label(
+                            RichText::new(lang::t("Loading index…"))
+                                .size(15.0)
+                                .color(pal().dim),
+                        );
                     });
                 }
                 self.status(ui);
@@ -405,10 +455,22 @@ impl eframe::App for App {
 impl App {
     fn header(&mut self, ui: &mut egui::Ui, _ctx: &egui::Context) {
         ui.horizontal(|ui| {
-            ui.label(RichText::new("hayate").size(20.0).strong().color(pal().text));
-            ui.label(RichText::new(lang::t("file search")).size(12.0).color(pal().dim));
+            ui.label(
+                RichText::new("hayate")
+                    .size(20.0)
+                    .strong()
+                    .color(pal().text),
+            );
+            ui.label(
+                RichText::new(lang::t("file search"))
+                    .size(12.0)
+                    .color(pal().dim),
+            );
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                if icon_settings(ui).on_hover_text(lang::t("Settings")).clicked() {
+                if icon_settings(ui)
+                    .on_hover_text(lang::t("Settings"))
+                    .clicked()
+                {
                     self.show_settings = true;
                 }
                 if let Some(ix) = self.ix() {
@@ -431,12 +493,17 @@ impl App {
                     let c = rect.center() + vec2(-2.0, -2.0);
                     let p = ui.painter();
                     p.circle_stroke(c, 6.0, Stroke::new(1.7_f32, pal().dim));
-                    p.line_segment([c + vec2(4.4, 4.4), c + vec2(8.4, 8.4)], Stroke::new(1.7_f32, pal().dim));
+                    p.line_segment(
+                        [c + vec2(4.4, 4.4), c + vec2(8.4, 8.4)],
+                        Stroke::new(1.7_f32, pal().dim),
+                    );
 
                     let before = self.query.clone();
                     let te = egui::TextEdit::singleline(&mut self.query)
                         .frame(false)
-                        .hint_text(RichText::new(lang::t("Search files and folders…")).color(pal().dim))
+                        .hint_text(
+                            RichText::new(lang::t("Search files and folders…")).color(pal().dim),
+                        )
                         .font(FontId::proportional(16.0))
                         .text_color(pal().text)
                         .desired_width(f32::INFINITY)
@@ -490,9 +557,10 @@ impl App {
         area.show(ui, |ui| {
             ui.spacing_mut().item_spacing.y = 2.0;
             for (row, &idx) in self.results.iter().enumerate() {
-                let (rect, resp) = ui.allocate_exact_size(vec2(ui.available_width(), row_h()), Sense::click());
-                                let resp = resp.on_hover_text(ix.path_at(idx));
-                                let selected = row == self.sel;
+                let (rect, resp) =
+                    ui.allocate_exact_size(vec2(ui.available_width(), row_h()), Sense::click());
+                let resp = resp.on_hover_text(ix.path_at(idx));
+                let selected = row == self.sel;
                 draw_row(ui, &resp, rect, ix, idx, selected);
                 if resp.clicked() {
                     clicked = Some(row);
@@ -521,17 +589,29 @@ impl App {
     fn empty_state(&mut self, ui: &mut egui::Ui, msg: &str) {
         ui.add_space(50.0);
         ui.vertical_centered(|ui| {
-            ui.label(RichText::new(lang::t("No index yet")).size(18.0).color(pal().text));
+            ui.label(
+                RichText::new(lang::t("No index yet"))
+                    .size(18.0)
+                    .color(pal().text),
+            );
             ui.add_space(6.0);
             ui.label(RichText::new(msg).size(13.0).color(pal().dim));
             ui.add_space(16.0);
             let scanning = self.scanned.is_some();
             let btn = egui::Button::new(
-                RichText::new(if scanning { lang::t("Scanning…") } else { lang::t("Build index") })
-                    .size(14.0)
-                    .color(if scanning { pal().dim } else { pal().bg }),
+                RichText::new(if scanning {
+                    lang::t("Scanning…")
+                } else {
+                    lang::t("Build index")
+                })
+                .size(14.0)
+                .color(if scanning { pal().dim } else { pal().bg }),
             )
-            .fill(if scanning { pal().surface_hi } else { pal().accent })
+            .fill(if scanning {
+                pal().surface_hi
+            } else {
+                pal().accent
+            })
             .rounding(Rounding::same(8.0))
             .min_size(vec2(200.0, 36.0));
             if ui.add_enabled(!scanning, btn).clicked() {
@@ -548,13 +628,27 @@ impl App {
             ui.horizontal(|ui| {
                 if let Load::Ready(_) = self.load {
                     let capped = self.results.len() >= self.st.limit;
-                    let txt = format!("{} · {}", lang::results(self.results.len(), capped), lang::ms(self.took_ms));
+                    let txt = format!(
+                        "{} · {}",
+                        lang::results(self.results.len(), capped),
+                        lang::ms(self.took_ms)
+                    );
                     ui.label(RichText::new(txt).size(11.5).color(pal().dim));
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                        ui.label(RichText::new(lang::t("Enter — open · ↑↓ — select · Esc — clear · Ctrl+, — settings")).size(11.5).color(pal().dim));
+                        ui.label(
+                            RichText::new(lang::t(
+                                "Enter — open · ↑↓ — select · Esc — clear · Ctrl+, — settings",
+                            ))
+                            .size(11.5)
+                            .color(pal().dim),
+                        );
                     });
                 } else if self.scanned.is_some() {
-                    ui.label(RichText::new(lang::t("Scanning disks, this may take a few minutes…")).size(11.5).color(pal().dim));
+                    ui.label(
+                        RichText::new(lang::t("Scanning disks, this may take a few minutes…"))
+                            .size(11.5)
+                            .color(pal().dim),
+                    );
                 }
             });
         });
@@ -563,16 +657,16 @@ impl App {
 
 fn keys(app: &mut App, ctx: &egui::Context) {
     if ctx.input(|i| i.modifiers.ctrl && i.key_pressed(egui::Key::Comma)) {
-            app.show_settings = true;
+        app.show_settings = true;
+        ctx.request_repaint();
+    }
+    if app.show_settings {
+        if ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
+            app.show_settings = false;
             ctx.request_repaint();
         }
-        if app.show_settings {
-            if ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
-                app.show_settings = false;
-                ctx.request_repaint();
-            }
-            return;
-        }
+        return;
+    }
     if app.results.is_empty() {
         return;
     }
@@ -603,12 +697,18 @@ fn keys(app: &mut App, ctx: &egui::Context) {
 
 fn chip(ui: &mut egui::Ui, label: &str, selected: bool) -> egui::Response {
     let font = FontId::proportional(12.5);
-    let galley = ui.painter().layout_no_wrap(label.to_string(), font.clone(), pal().text);
+    let galley = ui
+        .painter()
+        .layout_no_wrap(label.to_string(), font.clone(), pal().text);
     let size = vec2(galley.rect.width() + 22.0, 28.0);
     let (rect, resp) = ui.allocate_exact_size(size, Sense::click());
     let hovered = resp.hovered();
     let (fill, stroke, color) = if selected {
-        (pal().accent_soft, Stroke::new(1.0_f32, Color32::from_rgb(0x2f, 0x7f, 0xa8)), pal().accent)
+        (
+            pal().accent_soft,
+            Stroke::new(1.0_f32, Color32::from_rgb(0x2f, 0x7f, 0xa8)),
+            pal().accent,
+        )
     } else if hovered {
         (pal().hover, Stroke::NONE, pal().text)
     } else {
@@ -624,18 +724,29 @@ fn chip(ui: &mut egui::Ui, label: &str, selected: bool) -> egui::Response {
 fn icon_settings(ui: &mut egui::Ui) -> egui::Response {
     let (rect, resp) = ui.allocate_exact_size(vec2(30.0, 28.0), Sense::click());
     if resp.hovered() {
-        ui.painter().rect_filled(rect, Rounding::same(7.0), pal().hover);
+        ui.painter()
+            .rect_filled(rect, Rounding::same(7.0), pal().hover);
     }
     let p = ui.painter();
     let c = rect.center();
     for (dy, off) in [(-6.0f32, -3.0f32), (0.0, 3.0), (6.0, -1.5)] {
-        p.line_segment([pos2(c.x - 7.0, c.y + dy), pos2(c.x + 7.0, c.y + dy)], Stroke::new(1.6_f32, pal().dim));
+        p.line_segment(
+            [pos2(c.x - 7.0, c.y + dy), pos2(c.x + 7.0, c.y + dy)],
+            Stroke::new(1.6_f32, pal().dim),
+        );
         p.circle_filled(pos2(c.x + off, c.y + dy), 2.2, pal().dim);
     }
     resp
 }
 
-fn draw_row(ui: &egui::Ui, resp: &egui::Response, rect: Rect, ix: &Index, idx: usize, selected: bool) {
+fn draw_row(
+    ui: &egui::Ui,
+    resp: &egui::Response,
+    rect: Rect,
+    ix: &Index,
+    idx: usize,
+    selected: bool,
+) {
     let p = ui.painter();
     let hovered = resp.hovered();
     if selected {
@@ -646,7 +757,11 @@ fn draw_row(ui: &egui::Ui, resp: &egui::Response, rect: Rect, ix: &Index, idx: u
 
     let is_dir = ix.is_dir(idx);
     let kind = ix.kind_at(idx);
-    let (tag, color) = if is_dir { (lang::t("folder"), pal().accent) } else { (kind.name(), kind_color(kind)) };
+    let (tag, color) = if is_dir {
+        (lang::t("folder"), pal().accent)
+    } else {
+        (kind.name(), kind_color(kind))
+    };
 
     // пилюля типа
     let tag_rect = Rect::from_min_size(rect.left_top() + vec2(8.0, 9.0), vec2(86.0, 20.0));
@@ -657,10 +772,18 @@ fn draw_row(ui: &egui::Ui, resp: &egui::Response, rect: Rect, ix: &Index, idx: u
     let right = rect.right() - 10.0;
     let mut size_left = right;
     if show_sizes() {
-        let size_txt = if is_dir { "—".to_string() } else { human(ix.size_at(idx)) };
+        let size_txt = if is_dir {
+            "—".to_string()
+        } else {
+            human(ix.size_at(idx))
+        };
         let sg = p.layout_no_wrap(size_txt, FontId::proportional(11.5), pal().dim);
         size_left = right - sg.rect.width();
-        p.galley(pos2(size_left, rect.center().y - sg.rect.height() / 2.0), sg, pal().dim);
+        p.galley(
+            pos2(size_left, rect.center().y - sg.rect.height() / 2.0),
+            sg,
+            pal().dim,
+        );
     }
 
     // путь: каталог тускло, имя ярко, лишнее режется
@@ -678,20 +801,36 @@ fn draw_row(ui: &egui::Ui, resp: &egui::Response, rect: Rect, ix: &Index, idx: u
     if name_w >= avail {
         let cut = truncate_right(name, avail, name_w);
         let g = p.layout_no_wrap(cut, name_font, pal().text);
-        p.galley(pos2(text_left, rect.center().y - g.rect.height() / 2.0), g, pal().text);
+        p.galley(
+            pos2(text_left, rect.center().y - g.rect.height() / 2.0),
+            g,
+            pal().text,
+        );
     } else {
         let dir_space = avail - name_w;
         let dg = p.layout_no_wrap(dir.to_string(), FontId::proportional(12.5), pal().dim);
         let mut dir_w = dg.rect.width();
         if dir_w <= dir_space {
-            p.galley(pos2(text_left, rect.center().y - dg.rect.height() / 2.0), dg, pal().dim);
+            p.galley(
+                pos2(text_left, rect.center().y - dg.rect.height() / 2.0),
+                dg,
+                pal().dim,
+            );
         } else {
             let cut = truncate_left(dir, dir_space, dir_w);
             let g = p.layout_no_wrap(cut, FontId::proportional(12.5), pal().dim);
             dir_w = g.rect.width().min(dir_space);
-            p.galley(pos2(text_left, rect.center().y - g.rect.height() / 2.0), g, pal().dim);
+            p.galley(
+                pos2(text_left, rect.center().y - g.rect.height() / 2.0),
+                g,
+                pal().dim,
+            );
         }
-        p.galley(pos2(text_left + dir_w, rect.center().y - ng.rect.height() / 2.0), ng, pal().text);
+        p.galley(
+            pos2(text_left + dir_w, rect.center().y - ng.rect.height() / 2.0),
+            ng,
+            pal().text,
+        );
     }
 }
 
@@ -757,13 +896,21 @@ fn load_wall(ctx: &egui::Context, st: &Settings) -> Option<egui::TextureHandle> 
 fn install_fonts(ctx: &egui::Context) {
     let mut defs = FontDefinitions::default();
 
-    for path in ["C:/Windows/Fonts/SegUIVar.ttf", "C:/Windows/Fonts/segoeui.ttf", "C:/Windows/Fonts/arial.ttf"] {
+    for path in [
+        "C:/Windows/Fonts/SegUIVar.ttf",
+        "C:/Windows/Fonts/segoeui.ttf",
+        "C:/Windows/Fonts/arial.ttf",
+    ] {
         if add_font(&mut defs, "ui", path) {
             break;
         }
     }
     // запасной шрифт для китайского (и прочих CJK)
-    for path in ["C:/Windows/Fonts/msyh.ttc", "C:/Windows/Fonts/simsun.ttc", "C:/Windows/Fonts/malgun.ttf"] {
+    for path in [
+        "C:/Windows/Fonts/msyh.ttc",
+        "C:/Windows/Fonts/simsun.ttc",
+        "C:/Windows/Fonts/malgun.ttf",
+    ] {
         if add_font(&mut defs, "cjk", path) {
             break;
         }
@@ -783,8 +930,11 @@ fn install_fonts(ctx: &egui::Context) {
 }
 
 fn add_font(defs: &mut FontDefinitions, name: &str, path: &str) -> bool {
-    let Ok(bytes) = std::fs::read(path) else { return false };
-    defs.font_data.insert(name.to_owned(), FontData::from_owned(bytes).into());
+    let Ok(bytes) = std::fs::read(path) else {
+        return false;
+    };
+    defs.font_data
+        .insert(name.to_owned(), FontData::from_owned(bytes).into());
     true
 }
 
@@ -795,11 +945,8 @@ fn spawn_load() -> LoadRx {
         let res = Index::load(&p).map(Arc::new).map_err(|e| e.to_string());
         let _ = tx.send(res);
     });
-        rx
-    }
-
-
-
+    rx
+}
 
 fn human(n: u64) -> String {
     const U: [&str; 5] = ["B", "KB", "MB", "GB", "TB"];
@@ -809,12 +956,18 @@ fn human(n: u64) -> String {
         x /= 1024.0;
         i += 1;
     }
-    if i == 0 { format!("{n} B") } else { format!("{x:.1} {}", U[i]) }
+    if i == 0 {
+        format!("{n} B")
+    } else {
+        format!("{x:.1} {}", U[i])
+    }
 }
 
 #[cfg(windows)]
 fn open_path(p: &str) {
-    let _ = std::process::Command::new("cmd").args(["/C", "start", "", p]).spawn();
+    let _ = std::process::Command::new("cmd")
+        .args(["/C", "start", "", p])
+        .spawn();
 }
 
 #[cfg(not(windows))]
@@ -866,12 +1019,19 @@ fn set_dark_titlebar(frame: &eframe::Frame, backdrop: crate::settings::Backdrop)
     use raw_window_handle::{HasWindowHandle, RawWindowHandle};
     use windows_sys::Win32::Graphics::Dwm::{DWMWA_USE_IMMERSIVE_DARK_MODE, DwmSetWindowAttribute};
     let Ok(h) = frame.window_handle() else { return };
-    let RawWindowHandle::Win32(w) = h.as_raw() else { return };
+    let RawWindowHandle::Win32(w) = h.as_raw() else {
+        return;
+    };
     let hwnd = w.hwnd.get() as *mut core::ffi::c_void;
     let dark = pal().dark;
     unsafe {
         let d: i32 = if dark { 1 } else { 0 };
-        DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE as u32, &d as *const _ as *const _, 4);
+        DwmSetWindowAttribute(
+            hwnd,
+            DWMWA_USE_IMMERSIVE_DARK_MODE as u32,
+            &d as *const _ as *const _,
+            4,
+        );
         // Mica через DWM; акрил делаем ниже через композицию
         let sys: i32 = if backdrop == Backdrop::Mica { 2 } else { 1 };
         DwmSetWindowAttribute(hwnd, 38, &sys as *const _ as *const _, 4);
@@ -913,7 +1073,9 @@ fn set_acrylic(hwnd: *mut core::ffi::c_void, tint: Option<(u8, u8, u8, u8)>) {
         if hmod.is_null() {
             return;
         }
-        let Some(proc) = GetProcAddress(hmod, c"SetWindowCompositionAttribute".as_ptr() as *const u8) else {
+        let Some(proc) =
+            GetProcAddress(hmod, c"SetWindowCompositionAttribute".as_ptr() as *const u8)
+        else {
             return;
         };
         let f: Pfn = std::mem::transmute(proc);
@@ -923,10 +1085,18 @@ fn set_acrylic(hwnd: *mut core::ffi::c_void, tint: Option<(u8, u8, u8, u8)>) {
                 state: ACCENT_ENABLE_ACRYLICBLURBEHIND,
                 flags: 2,
                 // 0xAABBGGRR
-                gradient_color: ((a as u32) << 24) | ((b as u32) << 16) | ((g as u32) << 8) | r as u32,
+                gradient_color: ((a as u32) << 24)
+                    | ((b as u32) << 16)
+                    | ((g as u32) << 8)
+                    | r as u32,
                 animation_id: 0,
             },
-            None => AccentPolicy { state: 0, flags: 0, gradient_color: 0, animation_id: 0 },
+            None => AccentPolicy {
+                state: 0,
+                flags: 0,
+                gradient_color: 0,
+                animation_id: 0,
+            },
         };
         let mut data = Wcad {
             attrib: WCA_ACCENT_POLICY,

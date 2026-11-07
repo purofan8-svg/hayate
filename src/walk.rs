@@ -50,7 +50,12 @@ pub fn scan(roots: &[PathBuf], excludes: &[String]) -> (Index, ScanStats) {
         frontier = next;
     }
 
-    let stats = ScanStats { entries, dirs, bytes, secs: t0.elapsed().as_secs_f64() };
+    let stats = ScanStats {
+        entries,
+        dirs,
+        bytes,
+        secs: t0.elapsed().as_secs_f64(),
+    };
     (main, stats)
 }
 
@@ -68,7 +73,12 @@ fn scan_dir(dir: &Path, excludes: &[String]) -> DirScan {
     let mut bytes = 0u64;
 
     let Ok(rd) = std::fs::read_dir(dir) else {
-        return DirScan { ix, subdirs, dirs, bytes };
+        return DirScan {
+            ix,
+            subdirs,
+            dirs,
+            bytes,
+        };
     };
 
     for e in rd.flatten() {
@@ -76,7 +86,9 @@ fn scan_dir(dir: &Path, excludes: &[String]) -> DirScan {
         let name = name_os.to_string_lossy();
         let is_dir = e.file_type().map(|t| t.is_dir()).unwrap_or(false);
 
-        if is_dir && (SKIP_DIRS.contains(&name.as_ref()) || excludes.iter().any(|x| x == name.as_ref())) {
+        if is_dir
+            && (SKIP_DIRS.contains(&name.as_ref()) || excludes.iter().any(|x| x == name.as_ref()))
+        {
             continue;
         }
 
@@ -84,7 +96,10 @@ fn scan_dir(dir: &Path, excludes: &[String]) -> DirScan {
         #[cfg(windows)]
         {
             use std::os::windows::fs::MetadataExt;
-            let reparse = md.as_ref().map(|m| m.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT != 0).unwrap_or(false);
+            let reparse = md
+                .as_ref()
+                .map(|m| m.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT != 0)
+                .unwrap_or(false);
             if is_dir && reparse {
                 continue;
             }
@@ -119,13 +134,20 @@ fn scan_dir(dir: &Path, excludes: &[String]) -> DirScan {
         }
     }
 
-    DirScan { ix, subdirs, dirs, bytes }
+    DirScan {
+        ix,
+        subdirs,
+        dirs,
+        bytes,
+    }
 }
 
 #[cfg(windows)]
 fn is_hidden(_name: &str, md: &Option<std::fs::Metadata>) -> bool {
     use std::os::windows::fs::MetadataExt;
-    md.as_ref().map(|m| m.file_attributes() & 0x2 != 0).unwrap_or(false)
+    md.as_ref()
+        .map(|m| m.file_attributes() & 0x2 != 0)
+        .unwrap_or(false)
 }
 
 #[cfg(not(windows))]

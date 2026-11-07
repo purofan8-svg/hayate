@@ -33,19 +33,26 @@ fn self_exe() -> PathBuf {
 }
 
 fn install(silent: bool) {
-    let here = self_exe().parent().map(Path::to_path_buf).unwrap_or_default();
+    let here = self_exe()
+        .parent()
+        .map(Path::to_path_buf)
+        .unwrap_or_default();
     let src = here.join(APP);
     if !src.exists() {
         println!("Рядом с установщиком нет {APP}.");
         println!("Распакуй архив целиком и запусти hayate-setup.exe из папки.");
-        if !silent { pause(); }
+        if !silent {
+            pause();
+        }
         return;
     }
 
     let dir = install_dir();
     if let Err(e) = std::fs::create_dir_all(&dir) {
         println!("Не удалось создать {}: {e}", dir.display());
-        if !silent { pause(); }
+        if !silent {
+            pause();
+        }
         return;
     }
 
@@ -54,7 +61,9 @@ fn install(silent: bool) {
 
     if let Err(e) = std::fs::copy(&src, dir.join(APP)) {
         println!("Не удалось скопировать {APP}: {e}");
-        if !silent { pause(); }
+        if !silent {
+            pause();
+        }
         return;
     }
     let _ = std::fs::copy(self_exe(), dir.join("uninstall.exe"));
@@ -71,7 +80,9 @@ fn install(silent: bool) {
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null())
         .spawn();
-    if !silent { pause(); }
+    if !silent {
+        pause();
+    }
 }
 
 fn shortcuts(dir: &Path) {
@@ -79,7 +90,9 @@ fn shortcuts(dir: &Path) {
     let icon = dir.join("hayate.ico");
     let mut targets: Vec<PathBuf> = Vec::new();
     if let Ok(appdata) = std::env::var("APPDATA") {
-        targets.push(PathBuf::from(appdata).join("Microsoft\\Windows\\Start Menu\\Programs\\hayate.lnk"));
+        targets.push(
+            PathBuf::from(appdata).join("Microsoft\\Windows\\Start Menu\\Programs\\hayate.lnk"),
+        );
     }
     if let Ok(profile) = std::env::var("USERPROFILE") {
         targets.push(PathBuf::from(profile).join("Desktop\\hayate.lnk"));
@@ -115,7 +128,10 @@ fn register(dir: &Path) {
         ("Publisher", "hayate".to_string()),
         ("InstallLocation", dir.display().to_string()),
         ("DisplayIcon", dir.join("hayate.ico").display().to_string()),
-        ("UninstallString", format!("\"{}\" --uninstall", uninstall.display())),
+        (
+            "UninstallString",
+            format!("\"{}\" --uninstall", uninstall.display()),
+        ),
     ];
     for (name, value) in sets {
         let _ = Command::new("reg")
@@ -128,20 +144,29 @@ fn uninstall() {
     let _ = Command::new("taskkill").args(["/IM", APP, "/F"]).output();
 
     if let Ok(appdata) = std::env::var("APPDATA") {
-        let _ = std::fs::remove_file(PathBuf::from(appdata).join("Microsoft\\Windows\\Start Menu\\Programs\\hayate.lnk"));
+        let _ = std::fs::remove_file(
+            PathBuf::from(appdata).join("Microsoft\\Windows\\Start Menu\\Programs\\hayate.lnk"),
+        );
     }
     if let Ok(profile) = std::env::var("USERPROFILE") {
         let _ = std::fs::remove_file(PathBuf::from(profile).join("Desktop\\hayate.lnk"));
     }
     let _ = Command::new("reg")
-        .args(["delete", r"HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\hayate", "/f"])
+        .args([
+            "delete",
+            r"HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\hayate",
+            "/f",
+        ])
         .output();
 
     let dir = install_dir();
     println!("hayate удалён. Индекс и настройки тоже удаляются.");
 
     // папку уносим после выхода: сам процесс лежит внутри неё
-    let script = format!("ping -n 2 127.0.0.1 >nul & rmdir /s /q \"{}\"", dir.display());
+    let script = format!(
+        "ping -n 2 127.0.0.1 >nul & rmdir /s /q \"{}\"",
+        dir.display()
+    );
     let _ = Command::new("cmd").args(["/C", &script]).spawn();
     pause();
 }

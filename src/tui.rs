@@ -3,11 +3,11 @@
 use std::sync::Arc;
 
 use crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers};
+use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, List, ListItem, ListState, Paragraph};
-use ratatui::Frame;
 
 use crate::index::{Filter, Index, Kind};
 use crate::lang;
@@ -51,9 +51,19 @@ impl Mode {
     fn filter(self) -> Filter {
         match self {
             Mode::All => Filter::default(),
-            Mode::Dirs => Filter { dirs_only: true, ..Default::default() },
-            Mode::Files => Filter { files_only: true, ..Default::default() },
-            Mode::Kind(k) => Filter { files_only: true, kinds: Some(k.bit()), ..Default::default() },
+            Mode::Dirs => Filter {
+                dirs_only: true,
+                ..Default::default()
+            },
+            Mode::Files => Filter {
+                files_only: true,
+                ..Default::default()
+            },
+            Mode::Kind(k) => Filter {
+                files_only: true,
+                kinds: Some(k.bit()),
+                ..Default::default()
+            },
         }
     }
 }
@@ -71,7 +81,15 @@ struct App {
 impl App {
     fn new(ix: Arc<Index>) -> App {
         let total = ix.len();
-        App { ix, query: String::new(), mode: Mode::All, results: Vec::new(), sel: 0, took_ms: 0.0, total }
+        App {
+            ix,
+            query: String::new(),
+            mode: Mode::All,
+            results: Vec::new(),
+            sel: 0,
+            took_ms: 0.0,
+            total,
+        }
     }
 
     fn refresh(&mut self) {
@@ -104,7 +122,9 @@ type Term = ratatui::Terminal<ratatui::backend::CrosstermBackend<std::io::Stdout
 fn event_loop(term: &mut Term, app: &mut App) -> std::io::Result<()> {
     loop {
         term.draw(|f| draw(f, app))?;
-        let Event::Key(k) = event::read()? else { continue };
+        let Event::Key(k) = event::read()? else {
+            continue;
+        };
         if k.kind != KeyEventKind::Press {
             continue;
         }
@@ -161,17 +181,29 @@ fn tag_color(k: Kind) -> Color {
 }
 
 fn draw(f: &mut Frame, app: &App) {
-    let chunks = Layout::vertical([Constraint::Length(3), Constraint::Min(1), Constraint::Length(1)]).split(f.area());
+    let chunks = Layout::vertical([
+        Constraint::Length(3),
+        Constraint::Min(1),
+        Constraint::Length(1),
+    ])
+    .split(f.area());
 
     let input = Paragraph::new(Line::from(vec![
-        Span::styled("› ", Style::default().fg(ACCENT).add_modifier(Modifier::BOLD)),
+        Span::styled(
+            "› ",
+            Style::default().fg(ACCENT).add_modifier(Modifier::BOLD),
+        ),
         Span::raw(app.query.clone()),
         Span::styled("▏", Style::default().fg(ACCENT)),
     ]))
-    .block(Block::bordered().border_style(Style::default().fg(DIM)).title(Span::styled(
-        format!(" [{}] ", app.mode.label()),
-        Style::default().fg(ACCENT),
-    )));
+    .block(
+        Block::bordered()
+            .border_style(Style::default().fg(DIM))
+            .title(Span::styled(
+                format!(" [{}] ", app.mode.label()),
+                Style::default().fg(ACCENT),
+            )),
+    );
     f.render_widget(input, chunks[0]);
 
     let items: Vec<ListItem> = app
@@ -179,9 +211,17 @@ fn draw(f: &mut Frame, app: &App) {
         .iter()
         .map(|&i| {
             let is_dir = app.ix.is_dir(i);
-            let (tag, color) = if is_dir { (lang::t("folder"), ACCENT) } else { (app.ix.kind_at(i).name(), tag_color(app.ix.kind_at(i))) };
+            let (tag, color) = if is_dir {
+                (lang::t("folder"), ACCENT)
+            } else {
+                (app.ix.kind_at(i).name(), tag_color(app.ix.kind_at(i)))
+            };
             let path = app.ix.path_at(i);
-            let size = if is_dir { "—".to_string() } else { human(app.ix.size_at(i)) };
+            let size = if is_dir {
+                "—".to_string()
+            } else {
+                human(app.ix.size_at(i))
+            };
             let line = Line::from(vec![
                 Span::styled(format!("{:<11}", tag), Style::default().fg(color)),
                 Span::styled(path.to_string(), Style::default()),
@@ -192,10 +232,18 @@ fn draw(f: &mut Frame, app: &App) {
         .collect();
 
     let mut state = ListState::default();
-    state.select(if app.results.is_empty() { None } else { Some(app.sel) });
+    state.select(if app.results.is_empty() {
+        None
+    } else {
+        Some(app.sel)
+    });
     let list = List::new(items)
         .block(Block::bordered().border_style(Style::default().fg(DIM)))
-        .highlight_style(Style::default().bg(Color::Rgb(40, 52, 70)).add_modifier(Modifier::BOLD));
+        .highlight_style(
+            Style::default()
+                .bg(Color::Rgb(40, 52, 70))
+                .add_modifier(Modifier::BOLD),
+        );
     f.render_stateful_widget(list, chunks[1], &mut state);
 
     let status = format!(
@@ -206,7 +254,10 @@ fn draw(f: &mut Frame, app: &App) {
         lang::ms(app.took_ms),
         lang::t("Tab — type · ↑↓ — select · Enter — open · Esc — exit")
     );
-    f.render_widget(Paragraph::new(status).style(Style::default().fg(DIM)), chunks[2]);
+    f.render_widget(
+        Paragraph::new(status).style(Style::default().fg(DIM)),
+        chunks[2],
+    );
 }
 
 fn human(n: u64) -> String {
@@ -217,12 +268,18 @@ fn human(n: u64) -> String {
         x /= 1024.0;
         i += 1;
     }
-    if i == 0 { format!("{n} B") } else { format!("{x:.1} {}", U[i]) }
+    if i == 0 {
+        format!("{n} B")
+    } else {
+        format!("{x:.1} {}", U[i])
+    }
 }
 
 #[cfg(windows)]
 fn open_path(p: &str) {
-    let _ = std::process::Command::new("cmd").args(["/C", "start", "", p]).spawn();
+    let _ = std::process::Command::new("cmd")
+        .args(["/C", "start", "", p])
+        .spawn();
 }
 
 #[cfg(not(windows))]
@@ -245,7 +302,13 @@ mod tests {
         app.refresh();
         let mut t = Terminal::new(TestBackend::new(90, 20)).unwrap();
         t.draw(|f| draw(f, &app)).unwrap();
-        let text: String = t.backend().buffer().content().iter().map(|c| c.symbol()).collect();
+        let text: String = t
+            .backend()
+            .buffer()
+            .content()
+            .iter()
+            .map(|c| c.symbol())
+            .collect();
         assert!(text.contains("a.png"), "список не отрисован: {text}");
     }
 

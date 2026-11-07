@@ -81,10 +81,18 @@ pub fn t(key: &'static str) -> &'static str {
 fn row(key: &str) -> Option<[&'static str; 3]> {
     Some(match key {
         "file search" => ["file search", "поиск файлов", "文件搜索"],
-        "Search files and folders…" => ["Search files and folders…", "Поиск файлов и папок…", "搜索文件或文件夹…"],
+        "Search files and folders…" => [
+            "Search files and folders…",
+            "Поиск файлов и папок…",
+            "搜索文件或文件夹…",
+        ],
         "Loading index…" => ["Loading index…", "Загружаю индекс…", "正在加载索引…"],
         "No index yet" => ["No index yet", "Индекса нет", "索引尚未建立"],
-        "Index is not built yet" => ["Index is not built yet", "Индекс ещё не построен", "索引尚未建立"],
+        "Index is not built yet" => [
+            "Index is not built yet",
+            "Индекс ещё не построен",
+            "索引尚未建立",
+        ],
         "Scanning…" => ["Scanning…", "Сканирую…", "正在扫描…"],
         "Build index" => ["Build index", "Построить индекс", "建立索引"],
         "Scanning disks, this may take a few minutes…" => [
@@ -106,7 +114,11 @@ fn row(key: &str) -> Option<[&'static str; 3]> {
         "Settings" => ["Settings", "Настройки", "设置"],
         "folder" => ["folder", "папка", "文件夹"],
         "Reset" => ["Reset", "Сбросить", "重置"],
-        "saved automatically" => ["saved automatically", "сохраняется автоматически", "自动保存"],
+        "saved automatically" => [
+            "saved automatically",
+            "сохраняется автоматически",
+            "自动保存",
+        ],
         "APPEARANCE" => ["APPEARANCE", "ОФОРМЛЕНИЕ", "外观"],
         "LIST" => ["LIST", "СПИСОК", "列表"],
         "SEARCH" => ["SEARCH", "ПОИСК", "搜索"],
@@ -183,7 +195,10 @@ fn row(key: &str) -> Option<[&'static str; 3]> {
 pub fn results(n: usize, capped: bool) -> String {
     let plus = if capped { "+" } else { "" };
     match current() {
-        Lang::Ru => format!("{n}{plus} {}", plural_ru(n, "результат", "результата", "результатов")),
+        Lang::Ru => format!(
+            "{n}{plus} {}",
+            plural_ru(n, "результат", "результата", "результатов")
+        ),
         Lang::Zh => format!("{n}{plus} 个结果"),
         _ => format!("{n}{plus} {}", if n == 1 { "result" } else { "results" }),
     }

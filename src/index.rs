@@ -70,37 +70,101 @@ impl Kind {
     }
 
     pub const ALL: [Kind; 11] = [
-        Kind::Other, Kind::Image, Kind::Video, Kind::Audio, Kind::Doc, Kind::Text,
-        Kind::Archive, Kind::Code, Kind::Exec, Kind::Font, Kind::Model,
+        Kind::Other,
+        Kind::Image,
+        Kind::Video,
+        Kind::Audio,
+        Kind::Doc,
+        Kind::Text,
+        Kind::Archive,
+        Kind::Code,
+        Kind::Exec,
+        Kind::Font,
+        Kind::Model,
     ];
 }
 
-const IMAGE: &[&str] = &["png", "jpg", "jpeg", "gif", "bmp", "webp", "tif", "tiff", "ico", "svg", "psd", "avif", "heic", "dds", "tga"];
-const VIDEO: &[&str] = &["mp4", "mkv", "avi", "mov", "wmv", "flv", "webm", "m4v", "mpg", "mpeg", "ts", "vob"];
-const AUDIO: &[&str] = &["mp3", "flac", "wav", "ogg", "opus", "m4a", "aac", "wma", "mid", "midi", "xm", "mod"];
-const DOC: &[&str] = &["pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "odt", "ods", "rtf", "epub", "djvu", "fb2", "cbz", "cbr"];
-const TEXT: &[&str] = &["txt", "md", "markdown", "log", "ini", "cfg", "conf", "json", "yaml", "yml", "toml", "xml", "csv", "env", "properties", "nfo", "srt", "sub"];
-const ARCHIVE: &[&str] = &["zip", "rar", "7z", "tar", "gz", "bz2", "xz", "zst", "jar", "mrpack", "tmod", "iso", "img", "pak"];
-const CODE: &[&str] = &["rs", "java", "py", "js", "mjs", "cjs", "ts", "tsx", "jsx", "c", "h", "cpp", "hpp", "cc", "cs", "go", "rb", "php", "lua", "sh", "bash", "bat", "ps1", "html", "htm", "css", "scss", "sql", "kt", "swift", "dart", "gradle", "cmake", "mk", "glsl", "frag", "vert", "wgsl"];
-const EXEC: &[&str] = &["exe", "msi", "dll", "sys", "so", "dylib", "apk", "deb", "rpm", "appimage", "bin", "elf", "class", "pyc"];
+const IMAGE: &[&str] = &[
+    "png", "jpg", "jpeg", "gif", "bmp", "webp", "tif", "tiff", "ico", "svg", "psd", "avif", "heic",
+    "dds", "tga",
+];
+const VIDEO: &[&str] = &[
+    "mp4", "mkv", "avi", "mov", "wmv", "flv", "webm", "m4v", "mpg", "mpeg", "ts", "vob",
+];
+const AUDIO: &[&str] = &[
+    "mp3", "flac", "wav", "ogg", "opus", "m4a", "aac", "wma", "mid", "midi", "xm", "mod",
+];
+const DOC: &[&str] = &[
+    "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "odt", "ods", "rtf", "epub", "djvu", "fb2",
+    "cbz", "cbr",
+];
+const TEXT: &[&str] = &[
+    "txt",
+    "md",
+    "markdown",
+    "log",
+    "ini",
+    "cfg",
+    "conf",
+    "json",
+    "yaml",
+    "yml",
+    "toml",
+    "xml",
+    "csv",
+    "env",
+    "properties",
+    "nfo",
+    "srt",
+    "sub",
+];
+const ARCHIVE: &[&str] = &[
+    "zip", "rar", "7z", "tar", "gz", "bz2", "xz", "zst", "jar", "mrpack", "tmod", "iso", "img",
+    "pak",
+];
+const CODE: &[&str] = &[
+    "rs", "java", "py", "js", "mjs", "cjs", "ts", "tsx", "jsx", "c", "h", "cpp", "hpp", "cc", "cs",
+    "go", "rb", "php", "lua", "sh", "bash", "bat", "ps1", "html", "htm", "css", "scss", "sql",
+    "kt", "swift", "dart", "gradle", "cmake", "mk", "glsl", "frag", "vert", "wgsl",
+];
+const EXEC: &[&str] = &[
+    "exe", "msi", "dll", "sys", "so", "dylib", "apk", "deb", "rpm", "appimage", "bin", "elf",
+    "class", "pyc",
+];
 const FONT: &[&str] = &["ttf", "otf", "woff", "woff2", "ttc"];
-const MODEL: &[&str] = &["obj", "fbx", "gltf", "glb", "blend", "vox", "stl", "ply", "dae", "usd"];
+const MODEL: &[&str] = &[
+    "obj", "fbx", "gltf", "glb", "blend", "vox", "stl", "ply", "dae", "usd",
+];
 
 pub fn classify(name: &str) -> Kind {
-    let Some(dot) = name.rfind('.') else { return Kind::Other };
+    let Some(dot) = name.rfind('.') else {
+        return Kind::Other;
+    };
     let ext = name[dot + 1..].to_ascii_lowercase();
     let e = ext.as_str();
-    if IMAGE.contains(&e) { Kind::Image }
-    else if VIDEO.contains(&e) { Kind::Video }
-    else if AUDIO.contains(&e) { Kind::Audio }
-    else if DOC.contains(&e) { Kind::Doc }
-    else if TEXT.contains(&e) { Kind::Text }
-    else if ARCHIVE.contains(&e) { Kind::Archive }
-    else if CODE.contains(&e) { Kind::Code }
-    else if EXEC.contains(&e) { Kind::Exec }
-    else if FONT.contains(&e) { Kind::Font }
-    else if MODEL.contains(&e) { Kind::Model }
-    else { Kind::Other }
+    if IMAGE.contains(&e) {
+        Kind::Image
+    } else if VIDEO.contains(&e) {
+        Kind::Video
+    } else if AUDIO.contains(&e) {
+        Kind::Audio
+    } else if DOC.contains(&e) {
+        Kind::Doc
+    } else if TEXT.contains(&e) {
+        Kind::Text
+    } else if ARCHIVE.contains(&e) {
+        Kind::Archive
+    } else if CODE.contains(&e) {
+        Kind::Code
+    } else if EXEC.contains(&e) {
+        Kind::Exec
+    } else if FONT.contains(&e) {
+        Kind::Font
+    } else if MODEL.contains(&e) {
+        Kind::Model
+    } else {
+        Kind::Other
+    }
 }
 
 // ── фильтр ─────────────────────────────────────────────────────
@@ -214,13 +278,19 @@ impl Index {
 
     fn fpath(&self, i: usize) -> &str {
         let end = self.fends[i] as usize;
-        let start = if i == 0 { 0 } else { self.fends[i - 1] as usize };
+        let start = if i == 0 {
+            0
+        } else {
+            self.fends[i - 1] as usize
+        };
         &self.fbuf[start..end]
     }
 
     fn sort_hits(&self, hits: &mut [usize], sort: Sort) {
         match sort {
-            Sort::Relevance | Sort::Date => hits.sort_unstable_by(|&a, &b| self.mtimes[b].cmp(&self.mtimes[a])),
+            Sort::Relevance | Sort::Date => {
+                hits.sort_unstable_by(|&a, &b| self.mtimes[b].cmp(&self.mtimes[a]))
+            }
             Sort::Name => hits.sort_unstable_by(|&a, &b| self.fpath(a).cmp(self.fpath(b))),
             Sort::Size => hits.sort_unstable_by(|&a, &b| self.sizes[b].cmp(&self.sizes[a])),
         }
@@ -278,7 +348,10 @@ impl Index {
         let mut hits = Vec::new();
         let q = query.to_lowercase();
         if self.is_empty() {
-            return SearchResult { hits, took: t0.elapsed() };
+            return SearchResult {
+                hits,
+                took: t0.elapsed(),
+            };
         }
         if q.is_empty() {
             // Пустой запрос + фильтр = «покажи все файлы такого типа», свежие сверху
@@ -287,13 +360,18 @@ impl Index {
                 self.sort_hits(&mut hits, filter.sort);
                 hits.truncate(limit);
             }
-            return SearchResult { hits, took: t0.elapsed() };
+            return SearchResult {
+                hits,
+                took: t0.elapsed(),
+            };
         }
         let needle = q.as_bytes();
         let n = self.len();
         const CHUNK: usize = 1 << 16;
-        let ranges: Vec<(usize, usize)> =
-            (0..n).step_by(CHUNK).map(|a| (a, (a + CHUNK).min(n))).collect();
+        let ranges: Vec<(usize, usize)> = (0..n)
+            .step_by(CHUNK)
+            .map(|a| (a, (a + CHUNK).min(n)))
+            .collect();
 
         let parts: Vec<Vec<RawHit>> = ranges
             .par_iter()
@@ -302,27 +380,45 @@ impl Index {
 
         let mut raw: Vec<RawHit> = parts.into_iter().flatten().collect();
         match filter.sort {
-            Sort::Relevance => raw.sort_unstable_by(|x, y| y.score.cmp(&x.score).then(x.len.cmp(&y.len))),
-            Sort::Name => raw.sort_unstable_by(|x, y| self.fpath(x.idx as usize).cmp(self.fpath(y.idx as usize))),
-            Sort::Size => raw.sort_unstable_by(|x, y| self.sizes[y.idx as usize].cmp(&self.sizes[x.idx as usize])),
-            Sort::Date => raw.sort_unstable_by(|x, y| self.mtimes[y.idx as usize].cmp(&self.mtimes[x.idx as usize])),
+            Sort::Relevance => {
+                raw.sort_unstable_by(|x, y| y.score.cmp(&x.score).then(x.len.cmp(&y.len)))
+            }
+            Sort::Name => raw.sort_unstable_by(|x, y| {
+                self.fpath(x.idx as usize).cmp(self.fpath(y.idx as usize))
+            }),
+            Sort::Size => raw.sort_unstable_by(|x, y| {
+                self.sizes[y.idx as usize].cmp(&self.sizes[x.idx as usize])
+            }),
+            Sort::Date => raw.sort_unstable_by(|x, y| {
+                self.mtimes[y.idx as usize].cmp(&self.mtimes[x.idx as usize])
+            }),
         }
         hits.extend(raw.into_iter().take(limit).map(|h| h.idx as usize));
-        SearchResult { hits, took: t0.elapsed() }
+        SearchResult {
+            hits,
+            took: t0.elapsed(),
+        }
     }
 
     /// Все записи, подходящие под фильтр (без текстового запроса).
     fn collect_filtered(&self, filter: &Filter, limit: usize, out: &mut Vec<usize>) {
         const CHUNK: usize = 1 << 16;
         let n = self.len();
-        let ranges: Vec<(usize, usize)> = (0..n).step_by(CHUNK).map(|a| (a, (a + CHUNK).min(n))).collect();
+        let ranges: Vec<(usize, usize)> = (0..n)
+            .step_by(CHUNK)
+            .map(|a| (a, (a + CHUNK).min(n)))
+            .collect();
         let fbytes = self.fbuf.as_bytes();
         let parts: Vec<Vec<u32>> = ranges
             .par_iter()
             .map(|&(a, b)| {
                 let mut v = Vec::new();
                 for i in a..b {
-                    let fs = if i == 0 { 0 } else { self.fends[i - 1] as usize };
+                    let fs = if i == 0 {
+                        0
+                    } else {
+                        self.fends[i - 1] as usize
+                    };
                     let fe = self.fends[i] as usize;
                     if filter.accept(self.attrs[i], &fbytes[fs..fe]) {
                         v.push(i as u32);
@@ -337,8 +433,19 @@ impl Index {
         out.extend(parts.into_iter().flatten().take(limit).map(|i| i as usize));
     }
 
-    fn search_chunk(&self, a: usize, b: usize, needle: &[u8], filter: &Filter, cap: usize) -> Vec<RawHit> {
-        let bstart = if a == 0 { 0 } else { self.fends[a - 1] as usize };
+    fn search_chunk(
+        &self,
+        a: usize,
+        b: usize,
+        needle: &[u8],
+        filter: &Filter,
+        cap: usize,
+    ) -> Vec<RawHit> {
+        let bstart = if a == 0 {
+            0
+        } else {
+            self.fends[a - 1] as usize
+        };
         let bend = self.fends[b - 1] as usize;
         let bytes = self.fbuf.as_bytes();
         let hay = &bytes[bstart..bend];
@@ -352,13 +459,20 @@ impl Index {
                 continue;
             }
             last = idx;
-            let entry_start = if idx == 0 { 0 } else { self.fends[idx - 1] as usize };
+            let entry_start = if idx == 0 {
+                0
+            } else {
+                self.fends[idx - 1] as usize
+            };
             let entry = &bytes[entry_start..self.fends[idx] as usize];
             let at = self.attrs[idx];
             if !filter.accept(at, entry) {
                 continue;
             }
-            let name_off = match memrchr_sep(entry) { Some(p) => p + 1, None => 0 };
+            let name_off = match memrchr_sep(entry) {
+                Some(p) => p + 1,
+                None => 0,
+            };
             let name = &entry[name_off..];
             let mode_ok = match filter.match_mode {
                 Match::Contains => true,
@@ -369,7 +483,11 @@ impl Index {
                 continue;
             }
 
-            let mut score: i32 = if memmem::find(name, needle).is_some() { 1200 } else { 100 };
+            let mut score: i32 = if memmem::find(name, needle).is_some() {
+                1200
+            } else {
+                100
+            };
             if name == needle {
                 score += 3000;
             } else if name.starts_with(needle) {
@@ -384,7 +502,11 @@ impl Index {
             if at & ATTR_DIR != 0 {
                 score -= 12;
             }
-            out.push(RawHit { score, len: entry.len() as u32, idx: idx as u32 });
+            out.push(RawHit {
+                score,
+                len: entry.len() as u32,
+                idx: idx as u32,
+            });
             if out.len() >= cap {
                 break;
             }
@@ -423,7 +545,10 @@ impl Index {
         let mut data = Vec::new();
         File::open(path)?.read_to_end(&mut data)?;
         if data.len() < 40 || &data[..8] != MAGIC {
-            return Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "не hayate-индекс"));
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "не hayate-индекс",
+            ));
         }
         let mut p = 8usize;
         let n = take_u64(&data, &mut p) as usize;
@@ -436,7 +561,10 @@ impl Index {
         let roots = if roots_blob.is_empty() {
             Vec::new()
         } else {
-            String::from_utf8_lossy(roots_blob).split('\n').map(|s| s.to_string()).collect()
+            String::from_utf8_lossy(roots_blob)
+                .split('\n')
+                .map(|s| s.to_string())
+                .collect()
         };
 
         let buf = String::from_utf8_lossy(&data[p..p + buf_len]).to_string();
@@ -450,7 +578,16 @@ impl Index {
         let mtimes = read_i64s(&data, &mut p, n);
         let attrs = data[p..p + n].to_vec();
 
-        Ok(Index { buf, fbuf, ends, fends, sizes, mtimes, attrs, roots })
+        Ok(Index {
+            buf,
+            fbuf,
+            ends,
+            fends,
+            sizes,
+            mtimes,
+            attrs,
+            roots,
+        })
     }
 }
 
@@ -469,7 +606,8 @@ fn count_seps(s: &[u8]) -> usize {
 
 fn write_slice<T>(w: &mut impl Write, v: &[T]) -> std::io::Result<()> {
     // Только little-endian хосты (x86_64 / aarch64) — других у нас нет.
-    let bytes = unsafe { std::slice::from_raw_parts(v.as_ptr() as *const u8, std::mem::size_of_val(v)) };
+    let bytes =
+        unsafe { std::slice::from_raw_parts(v.as_ptr() as *const u8, std::mem::size_of_val(v)) };
     w.write_all(bytes)
 }
 
@@ -511,9 +649,24 @@ mod tests {
 
     fn demo() -> Index {
         let mut ix = Index::default();
-        ix.push("C:/mods/Create.jar", 100, 0, (Kind::Archive as u8) << KIND_SHIFT);
-        ix.push("C:/mods/config/create.json", 10, 0, (Kind::Code as u8) << KIND_SHIFT);
-        ix.push("C:/pics/logo.png", 2048, 0, (Kind::Image as u8) << KIND_SHIFT);
+        ix.push(
+            "C:/mods/Create.jar",
+            100,
+            0,
+            (Kind::Archive as u8) << KIND_SHIFT,
+        );
+        ix.push(
+            "C:/mods/config/create.json",
+            10,
+            0,
+            (Kind::Code as u8) << KIND_SHIFT,
+        );
+        ix.push(
+            "C:/pics/logo.png",
+            2048,
+            0,
+            (Kind::Image as u8) << KIND_SHIFT,
+        );
         ix.push("C:/pics", 0, 0, ATTR_DIR);
         ix
     }
@@ -538,24 +691,38 @@ mod tests {
     fn search_ranks_name_matches() {
         let ix = demo();
         let r = ix.search("create", 10, &Filter::default());
-        assert_eq!(r.hits.first().copied(), Some(0), "имя важнее пути: {:?}", r.hits);
+        assert_eq!(
+            r.hits.first().copied(),
+            Some(0),
+            "имя важнее пути: {:?}",
+            r.hits
+        );
         assert_eq!(r.hits.len(), 2);
     }
 
     #[test]
     fn kind_filter_excludes_dirs_and_other_types() {
         let ix = demo();
-        let f = Filter { kinds: Some(Kind::Image.bit()), ..Default::default() };
+        let f = Filter {
+            kinds: Some(Kind::Image.bit()),
+            ..Default::default()
+        };
         let r = ix.search("", 10, &f);
         assert_eq!(r.hits, vec![2]);
-        let d = Filter { dirs_only: true, ..Default::default() };
+        let d = Filter {
+            dirs_only: true,
+            ..Default::default()
+        };
         assert_eq!(ix.search("", 10, &d).hits, vec![3]);
     }
 
     #[test]
     fn ext_filter() {
         let ix = demo();
-        let f = Filter { ext: Some(".json".into()), ..Default::default() };
+        let f = Filter {
+            ext: Some(".json".into()),
+            ..Default::default()
+        };
         assert_eq!(ix.search("", 10, &f).hits, vec![1]);
     }
 

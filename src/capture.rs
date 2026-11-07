@@ -3,11 +3,20 @@
 /// Забрать область экрана (x,y,w,h), уменьшить до out_w×out_h и размыть.
 /// Возвращает (rgba, ширина, высота).
 #[cfg(windows)]
-pub fn grab_blurred(x: i32, y: i32, w: i32, h: i32, out_w: i32, out_h: i32, radius: f32) -> Option<(Vec<u8>, u32, u32)> {
+pub fn grab_blurred(
+    x: i32,
+    y: i32,
+    w: i32,
+    h: i32,
+    out_w: i32,
+    out_h: i32,
+    radius: f32,
+) -> Option<(Vec<u8>, u32, u32)> {
     use std::ffi::c_void;
     use windows_sys::Win32::Graphics::Gdi::{
-        BI_RGB, BITMAPINFO, BITMAPINFOHEADER, CreateCompatibleDC, CreateDIBSection, DIB_RGB_COLORS, DeleteDC,
-        DeleteObject, GetDC, COLORONCOLOR, ReleaseDC, SRCCOPY, SelectObject, SetBrushOrgEx, SetStretchBltMode, StretchBlt,
+        BI_RGB, BITMAPINFO, BITMAPINFOHEADER, COLORONCOLOR, CreateCompatibleDC, CreateDIBSection,
+        DIB_RGB_COLORS, DeleteDC, DeleteObject, GetDC, ReleaseDC, SRCCOPY, SelectObject,
+        SetBrushOrgEx, SetStretchBltMode, StretchBlt,
     };
 
     if w <= 0 || h <= 0 || out_w <= 0 || out_h <= 0 {
@@ -72,16 +81,30 @@ pub fn grab_blurred(x: i32, y: i32, w: i32, h: i32, out_w: i32, out_h: i32, radi
 }
 
 #[cfg(not(windows))]
-pub fn grab_blurred(_x: i32, _y: i32, _w: i32, _h: i32, _ow: i32, _oh: i32, _r: f32) -> Option<(Vec<u8>, u32, u32)> {
+pub fn grab_blurred(
+    _x: i32,
+    _y: i32,
+    _w: i32,
+    _h: i32,
+    _ow: i32,
+    _oh: i32,
+    _r: f32,
+) -> Option<(Vec<u8>, u32, u32)> {
     None
 }
 
 /// Прятать окно от захвата экрана, чтобы блюр не ловил сам себя.
 #[cfg(windows)]
 pub fn exclude_from_capture(hwnd: *mut core::ffi::c_void, exclude: bool) {
-    use windows_sys::Win32::UI::WindowsAndMessaging::{SetWindowDisplayAffinity, WDA_EXCLUDEFROMCAPTURE, WDA_NONE};
+    use windows_sys::Win32::UI::WindowsAndMessaging::{
+        SetWindowDisplayAffinity, WDA_EXCLUDEFROMCAPTURE, WDA_NONE,
+    };
     unsafe {
-        let flag = if exclude { WDA_EXCLUDEFROMCAPTURE } else { WDA_NONE };
+        let flag = if exclude {
+            WDA_EXCLUDEFROMCAPTURE
+        } else {
+            WDA_NONE
+        };
         SetWindowDisplayAffinity(hwnd, flag);
     }
 }

@@ -17,7 +17,11 @@ use clap::{Parser, Subcommand};
 use crate::index::{Filter, Index, Kind};
 
 #[derive(Parser)]
-#[command(name = "hayate", version, about = "Мгновенный поиск файлов: Windows + Linux")]
+#[command(
+    name = "hayate",
+    version,
+    about = "Мгновенный поиск файлов: Windows + Linux"
+)]
 struct Cli {
     #[command(subcommand)]
     cmd: Option<Cmd>,
@@ -88,40 +92,91 @@ fn run(cmd: Cmd) -> Result<(), Box<dyn std::error::Error>> {
             }
             gui::run()?
         }
-        Cmd::Index { roots, exclude, out } => {
-            let roots = if roots.is_empty() { walk::default_roots() } else { roots };
-            println!("Сканирую: {}", roots.iter().map(|p| p.display().to_string()).collect::<Vec<_>>().join(", "));
+        Cmd::Index {
+            roots,
+            exclude,
+            out,
+        } => {
+            let roots = if roots.is_empty() {
+                walk::default_roots()
+            } else {
+                roots
+            };
+            println!(
+                "Сканирую: {}",
+                roots
+                    .iter()
+                    .map(|p| p.display().to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            );
             let (ix, st) = walk::scan(&roots, &exclude);
             let out_path = out.unwrap_or_else(index_path);
             ix.save(&out_path)?;
             let mb = std::fs::metadata(&out_path).map(|m| m.len()).unwrap_or(0) as f64 / 1048576.0;
             println!(
                 "Готово: {} записей ({} каталогов, {:.1} ГБ) за {:.2} c · {:.0} файлов/с · {:.1} МБ индекса",
-                st.entries, st.dirs, st.bytes as f64 / 1073741824.0, st.secs, st.entries as f64 / st.secs.max(0.001), mb
+                st.entries,
+                st.dirs,
+                st.bytes as f64 / 1073741824.0,
+                st.secs,
+                st.entries as f64 / st.secs.max(0.001),
+                mb
             );
             println!("Индекс: {}", out_path.display());
         }
-        Cmd::Find { query, limit, json, dirs, files, types, ext } => {
+        Cmd::Find {
+            query,
+            limit,
+            json,
+            dirs,
+            files,
+            types,
+            ext,
+        } => {
             let ix = load()?;
             let filter = build_filter(dirs, files, &types, ext)?;
             let r = ix.search(&query, limit, &filter);
             if json {
-                let items: Vec<String> = r.hits.iter().map(|&i| {
-                    format!(
-                        "{{\"path\":{},\"size\":{},\"dir\":{},\"kind\":\"{}\",\"mtime\":{}}}",
-                        json_str(ix.path_at(i)), ix.size_at(i), ix.is_dir(i), ix.kind_at(i).name(), ix.mtime_at(i)
-                    )
-                }).collect();
+                let items: Vec<String> = r
+                    .hits
+                    .iter()
+                    .map(|&i| {
+                        format!(
+                            "{{\"path\":{},\"size\":{},\"dir\":{},\"kind\":\"{}\",\"mtime\":{}}}",
+                            json_str(ix.path_at(i)),
+                            ix.size_at(i),
+                            ix.is_dir(i),
+                            ix.kind_at(i).name(),
+                            ix.mtime_at(i)
+                        )
+                    })
+                    .collect();
                 println!("[{}]", items.join(","));
             } else if r.hits.is_empty() {
-                println!("Ничего не найдено ({:.2} мс)", r.took.as_secs_f64() * 1000.0);
+                println!(
+                    "Ничего не найдено ({:.2} мс)",
+                    r.took.as_secs_f64() * 1000.0
+                );
             } else {
                 for &i in &r.hits {
-                    let tag = if ix.is_dir(i) { "папка".to_string() } else { ix.kind_at(i).name().to_string() };
-                    let size = if ix.is_dir(i) { "—".to_string() } else { human(ix.size_at(i)) };
+                    let tag = if ix.is_dir(i) {
+                        "папка".to_string()
+                    } else {
+                        ix.kind_at(i).name().to_string()
+                    };
+                    let size = if ix.is_dir(i) {
+                        "—".to_string()
+                    } else {
+                        human(ix.size_at(i))
+                    };
                     println!("{:<10} {:>9}  {}", tag, size, ix.path_at(i));
                 }
-                println!("── {} результатов за {:.2} мс", r.hits.len(), r.took.as_secs_f64() * 1000.0);
+                println!(
+                    "── {} результатов за {:.2} мс",
+                    r.hits.len(),
+                    r.took.as_secs_f64() * 1000.0
+                );
             }
         }
         Cmd::Tui => {
@@ -131,7 +186,9 @@ fn run(cmd: Cmd) -> Result<(), Box<dyn std::error::Error>> {
         Cmd::Stats => {
             let ix = load()?;
             let p = index_path();
-            let disk = std::fs::metadata(&p).map(|m| human(m.len())).unwrap_or_else(|_| "?".into());
+            let disk = std::fs::metadata(&p)
+                .map(|m| human(m.len()))
+                .unwrap_or_else(|_| "?".into());
             let dirs = (0..ix.len()).filter(|&i| ix.is_dir(i)).count();
             let mut counts = [0u64; 11];
             for i in 0..ix.len() {
@@ -167,7 +224,11 @@ fn run(cmd: Cmd) -> Result<(), Box<dyn std::error::Error>> {
             }
             println!(
                 "«{}»: лучший {:.2} мс, средний {:.2} мс ({} прогонов, {} хитов)",
-                query, best, total / runs.max(1) as f64, runs, n
+                query,
+                best,
+                total / runs.max(1) as f64,
+                runs,
+                n
             );
         }
     }
@@ -193,7 +254,11 @@ fn build_filter(
         kinds: mask,
         ext: ext.map(|e| {
             let e = e.trim().to_lowercase();
-            if e.starts_with('.') { e } else { format!(".{e}") }
+            if e.starts_with('.') {
+                e
+            } else {
+                format!(".{e}")
+            }
         }),
         ..Default::default()
     })
@@ -202,7 +267,11 @@ fn build_filter(
 fn load() -> Result<Index, Box<dyn std::error::Error>> {
     let p = index_path();
     if !p.exists() {
-        return Err(format!("индекса нет — сначала `hayate index`\nожидался {}", p.display()).into());
+        return Err(format!(
+            "индекса нет — сначала `hayate index`\nожидался {}",
+            p.display()
+        )
+        .into());
     }
     Ok(Index::load(&p)?)
 }
@@ -229,7 +298,11 @@ fn human(n: u64) -> String {
         x /= 1024.0;
         i += 1;
     }
-    if i == 0 { format!("{n} B") } else { format!("{x:.1} {}", U[i]) }
+    if i == 0 {
+        format!("{n} B")
+    } else {
+        format!("{x:.1} {}", U[i])
+    }
 }
 
 fn json_str(s: &str) -> String {
