@@ -4,11 +4,13 @@ use eframe::egui::{
     self, Align, Color32, FontId, Layout, Margin, RichText, Rounding, Sense, Stroke, pos2, vec2,
 };
 
+use crate::lang;
 use crate::settings::{Accent, Backdrop, Density, Match, Settings, Sort, Theme, pal};
+use crate::lang::Lang;
 
 pub fn window(ctx: &egui::Context, st: &mut Settings, open: &mut bool) {
     let mut is_open = *open;
-    egui::Window::new(RichText::new("Настройки").size(15.0).strong().color(pal().text))
+    egui::Window::new(RichText::new(lang::t("Settings")).size(15.0).strong().color(pal().text))
         .open(&mut is_open)
         .collapsible(false)
         .resizable(false)
@@ -33,11 +35,15 @@ fn solid(c: Color32) -> Color32 {
 fn body(ui: &mut egui::Ui, st: &mut Settings) {
     ui.spacing_mut().item_spacing.y = 10.0;
 
-    section(ui, "ОФОРМЛЕНИЕ");
-    row(ui, "Тема", |ui| {
-        segmented(ui, &mut st.theme, &[(Theme::Dark, "Тёмная"), (Theme::Light, "Светлая")]);
+    section(ui, lang::t("APPEARANCE"));
+    row(ui, lang::t("Language"), |ui| {
+        let opts: Vec<(Lang, &str)> = Lang::ALL.iter().map(|&l| (l, l.label())).collect();
+        combo(ui, "lang", &mut st.lang, &opts);
     });
-    row(ui, "Акцент", |ui| {
+    row(ui, lang::t("Theme"), |ui| {
+        segmented(ui, &mut st.theme, &[(Theme::Dark, lang::t("Dark")), (Theme::Light, lang::t("Light"))]);
+    });
+    row(ui, lang::t("Accent"), |ui| {
         ui.horizontal(|ui| {
             for a in Accent::ALL {
                 if swatch(ui, a, st.accent == a) {
@@ -46,46 +52,46 @@ fn body(ui: &mut egui::Ui, st: &mut Settings) {
             }
         });
     });
-    row(ui, "Непрозрачность фона", |ui| {
+    row(ui, lang::t("Background opacity"), |ui| {
         let mut pct = (st.opacity * 100.0).round();
         if ui.add(egui::Slider::new(&mut pct, 20.0..=100.0).suffix(" %").show_value(true)).changed() {
             st.opacity = pct / 100.0;
         }
     });
-    row(ui, "Подложка", |ui| {
+    row(ui, lang::t("Backdrop"), |ui| {
         let opts: Vec<(Backdrop, &str)> = Backdrop::ALL.iter().map(|&b| (b, b.name())).collect();
         segmented(ui, &mut st.backdrop, &opts);
     });
 
-    section(ui, "СПИСОК");
-    row(ui, "Плотность", |ui| {
+    section(ui, lang::t("LIST"));
+    row(ui, lang::t("Density"), |ui| {
         segmented(
             ui,
             &mut st.density,
-            &[(Density::Compact, "Плотно"), (Density::Normal, "Обычно"), (Density::Relaxed, "Свободно")],
+            &[(Density::Compact, lang::t("Compact")), (Density::Normal, lang::t("Normal")), (Density::Relaxed, lang::t("Relaxed"))],
         );
     });
-    row(ui, "Показывать скрытые", |ui| {
+    row(ui, lang::t("Show hidden"), |ui| {
         toggle(ui, &mut st.show_hidden);
     });
-    row(ui, "Показывать размер", |ui| {
+    row(ui, lang::t("Show size"), |ui| {
         toggle(ui, &mut st.show_sizes);
     });
-    row(ui, "Лимит результатов", |ui| {
+    row(ui, lang::t("Result limit"), |ui| {
         let mut lim = st.limit as f32;
         if ui.add(egui::Slider::new(&mut lim, 50.0..=2000.0).step_by(50.0).integer()).changed() {
             st.limit = lim as usize;
         }
     });
-    row(ui, "Сортировка", |ui| {
+    row(ui, lang::t("Sort"), |ui| {
         combo(ui, "sort", &mut st.sort, &Sort::ALL.map(|s| (s, s.name())));
     });
 
-    section(ui, "ПОИСК");
-    row(ui, "Совпадение", |ui| {
+    section(ui, lang::t("SEARCH"));
+    row(ui, lang::t("Match"), |ui| {
         combo(ui, "match", &mut st.match_mode, &Match::ALL.map(|m| (m, m.name())));
     });
-    row(ui, "Масштаб интерфейса", |ui| {
+    row(ui, lang::t("Interface scale"), |ui| {
         let mut sc = st.font_scale;
         if ui.add(egui::Slider::new(&mut sc, 0.85..=1.3).step_by(0.05)).changed() {
             st.font_scale = sc;
@@ -94,7 +100,7 @@ fn body(ui: &mut egui::Ui, st: &mut Settings) {
 
     ui.add_space(10.0);
     ui.horizontal(|ui| {
-        let reset = egui::Button::new(RichText::new("Сбросить").size(12.5).color(pal().text))
+        let reset = egui::Button::new(RichText::new(lang::t("Reset")).size(12.5).color(pal().text))
             .fill(pal().surface_hi)
             .rounding(Rounding::same(8.0))
             .min_size(vec2(110.0, 30.0));
@@ -110,7 +116,7 @@ fn body(ui: &mut egui::Ui, st: &mut Settings) {
 }
 
 fn settings_path_hint() -> String {
-    "сохраняется автоматически".to_string()
+    lang::t("saved automatically").to_string()
 }
 
 fn section(ui: &mut egui::Ui, title: &str) {

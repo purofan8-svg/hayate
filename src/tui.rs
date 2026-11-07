@@ -10,6 +10,7 @@ use ratatui::widgets::{Block, List, ListItem, ListState, Paragraph};
 use ratatui::Frame;
 
 use crate::index::{Filter, Index, Kind};
+use crate::lang;
 
 const ACCENT: Color = Color::Rgb(120, 190, 255);
 const DIM: Color = Color::Rgb(120, 126, 138);
@@ -178,7 +179,7 @@ fn draw(f: &mut Frame, app: &App) {
         .iter()
         .map(|&i| {
             let is_dir = app.ix.is_dir(i);
-            let (tag, color) = if is_dir { ("папка", ACCENT) } else { (app.ix.kind_at(i).name(), tag_color(app.ix.kind_at(i))) };
+            let (tag, color) = if is_dir { (lang::t("folder"), ACCENT) } else { (app.ix.kind_at(i).name(), tag_color(app.ix.kind_at(i))) };
             let path = app.ix.path_at(i);
             let size = if is_dir { "—".to_string() } else { human(app.ix.size_at(i)) };
             let line = Line::from(vec![
@@ -198,10 +199,12 @@ fn draw(f: &mut Frame, app: &App) {
     f.render_stateful_widget(list, chunks[1], &mut state);
 
     let status = format!(
-        " {} из {} · {:.2} мс · Tab — тип · ↑↓ — выбор · Enter — открыть · Esc — выход ",
+        " {} {} {} · {} · {} ",
         app.results.len(),
-        app.total,
-        app.took_ms
+        lang::t("of"),
+        lang::fmt_num(app.total),
+        lang::ms(app.took_ms),
+        lang::t("Tab — type · ↑↓ — select · Enter — open · Esc — exit")
     );
     f.render_widget(Paragraph::new(status).style(Style::default().fg(DIM)), chunks[2]);
 }

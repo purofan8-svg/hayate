@@ -38,17 +38,17 @@ impl Kind {
 
     pub fn name(self) -> &'static str {
         match self {
-            Kind::Other => "прочее",
-            Kind::Image => "картинки",
-            Kind::Video => "видео",
-            Kind::Audio => "аудио",
-            Kind::Doc => "документы",
-            Kind::Text => "текст",
-            Kind::Archive => "архивы",
-            Kind::Code => "код",
-            Kind::Exec => "программы",
-            Kind::Font => "шрифты",
-            Kind::Model => "3D-модели",
+            Kind::Other => crate::lang::t("other"),
+            Kind::Image => crate::lang::t("images"),
+            Kind::Video => crate::lang::t("video"),
+            Kind::Audio => crate::lang::t("audio"),
+            Kind::Doc => crate::lang::t("documents"),
+            Kind::Text => crate::lang::t("text"),
+            Kind::Archive => crate::lang::t("archives"),
+            Kind::Code => crate::lang::t("code"),
+            Kind::Exec => crate::lang::t("programs"),
+            Kind::Font => crate::lang::t("fonts"),
+            Kind::Model => crate::lang::t("3D models"),
         }
     }
 

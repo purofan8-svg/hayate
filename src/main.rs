@@ -1,6 +1,7 @@
 mod capture;
 mod gui;
 mod index;
+mod lang;
 mod settings;
 mod settings_ui;
 mod tui;

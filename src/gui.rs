@@ -11,10 +11,12 @@ use egui::{
 };
 
 use crate::index::{Filter, Index, Kind};
+use crate::lang;
 use crate::settings::{self, Settings, pal, row_h, show_sizes};
 
 /// Применить оформление из настроек
 fn apply_style(ctx: &egui::Context, st: &Settings) {
+    crate::lang::set(st.lang);
     let p = settings::palette(st);
     settings::set_pal(p);
     settings::set_row_h(st.density.row_height());
@@ -80,14 +82,14 @@ enum Mode {
 impl Mode {
     fn chip_label(self) -> String {
         match self {
-            Mode::All => "Всё".into(),
-            Mode::Dirs => "Папки".into(),
-            Mode::Files => "Файлы".into(),
+            Mode::All => lang::t("All").into(),
+            Mode::Dirs => lang::t("Folders").into(),
+            Mode::Files => lang::t("Files").into(),
             Mode::Kind(k) => match k {
-                            Kind::Image => "Фото".into(),
-                            Kind::Doc => "Доки".into(),
+                            Kind::Image => lang::t("Photos").into(),
+                            Kind::Doc => lang::t("Docs").into(),
                             Kind::Exec => "EXE".into(),
-                            Kind::Model => "3D".into(),
+                            Kind::Model => lang::t("3D").into(),
                             _ => {
                                 let n = k.name();
                                 let mut c = n.chars();
@@ -139,8 +141,12 @@ fn spawn_capture(hwnd: isize) -> CapWorker {
         while stop2.load(Ordering::Relaxed) {
             let h = hwnd as *mut core::ffi::c_void;
             if let Some((x, y, w, hh)) = client_rect_screen(h) {
+                // исключаем окно из захвата только на время снимка,
+                // иначе hayate пропадает со скриншотов и шаринга экрана
+                crate::capture::exclude_from_capture(h, true);
                 let t0 = std::time::Instant::now();
                 let grabbed = crate::capture::grab_blurred(x, y, w, hh, 160, 96, 3.5);
+                crate::capture::exclude_from_capture(h, false);
                 if std::env::var_os("HAYATE_DEBUG_CAP").is_some() {
                     eprintln!("grab {:?}", t0.elapsed());
                 }
@@ -185,7 +191,7 @@ impl App {
 
         let load = match crate::index_path().exists() {
             true => Load::Loading(spawn_load()),
-            false => Load::Failed("Индекс ещё не построен".into()),
+            false => Load::Failed(lang::t("Index is not built yet").into()),
         };
         let wall = load_wall(&cc.egui_ctx, &st);
         let wall_key = Some(st.backdrop);
@@ -366,7 +372,7 @@ impl eframe::App for App {
                 } else {
                     ui.add_space(40.0);
                     ui.vertical_centered(|ui| {
-                        ui.label(RichText::new("Загружаю индекс…").size(15.0).color(pal().dim));
+                        ui.label(RichText::new(lang::t("Loading index…")).size(15.0).color(pal().dim));
                     });
                 }
                 self.status(ui);
@@ -400,13 +406,13 @@ impl App {
     fn header(&mut self, ui: &mut egui::Ui, _ctx: &egui::Context) {
         ui.horizontal(|ui| {
             ui.label(RichText::new("hayate").size(20.0).strong().color(pal().text));
-            ui.label(RichText::new("поиск файлов").size(12.0).color(pal().dim));
+            ui.label(RichText::new(lang::t("file search")).size(12.0).color(pal().dim));
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                if icon_settings(ui).on_hover_text("Настройки").clicked() {
+                if icon_settings(ui).on_hover_text(lang::t("Settings")).clicked() {
                     self.show_settings = true;
                 }
                 if let Some(ix) = self.ix() {
-                    let txt = format!("{} {}", fmt_num(ix.len()), plural_records(ix.len()));
+                    let txt = lang::records(ix.len());
                     ui.label(RichText::new(txt).size(12.0).color(pal().dim));
                 }
             });
@@ -430,7 +436,7 @@ impl App {
                     let before = self.query.clone();
                     let te = egui::TextEdit::singleline(&mut self.query)
                         .frame(false)
-                        .hint_text(RichText::new("Поиск файлов и папок…").color(pal().dim))
+                        .hint_text(RichText::new(lang::t("Search files and folders…")).color(pal().dim))
                         .font(FontId::proportional(16.0))
                         .text_color(pal().text)
                         .desired_width(f32::INFINITY)
@@ -467,9 +473,9 @@ impl App {
             ui.add_space(48.0);
             ui.vertical_centered(|ui| {
                 let msg = if self.query.is_empty() && self.mode == Mode::All {
-                    "Начни печатать — или выбери тип сверху"
+                    lang::t("Start typing — or pick a type above")
                 } else {
-                    "Ничего не нашлось"
+                    lang::t("Nothing found")
                 };
                 ui.label(RichText::new(msg).size(14.0).color(pal().dim));
             });
@@ -515,13 +521,13 @@ impl App {
     fn empty_state(&mut self, ui: &mut egui::Ui, msg: &str) {
         ui.add_space(50.0);
         ui.vertical_centered(|ui| {
-            ui.label(RichText::new("Индекса нет").size(18.0).color(pal().text));
+            ui.label(RichText::new(lang::t("No index yet")).size(18.0).color(pal().text));
             ui.add_space(6.0);
             ui.label(RichText::new(msg).size(13.0).color(pal().dim));
             ui.add_space(16.0);
             let scanning = self.scanned.is_some();
             let btn = egui::Button::new(
-                RichText::new(if scanning { "Сканирую…" } else { "Построить индекс" })
+                RichText::new(if scanning { lang::t("Scanning…") } else { lang::t("Build index") })
                     .size(14.0)
                     .color(if scanning { pal().dim } else { pal().bg }),
             )
@@ -541,13 +547,14 @@ impl App {
             ui.add_space(2.0);
             ui.horizontal(|ui| {
                 if let Load::Ready(_) = self.load {
-                    let txt = format!("{}{} {} · {} мс", self.results.len(), if self.results.len() >= self.st.limit { "+" } else { "" }, plural(self.results.len()), fmt_ms(self.took_ms));
+                    let capped = self.results.len() >= self.st.limit;
+                    let txt = format!("{} · {}", lang::results(self.results.len(), capped), lang::ms(self.took_ms));
                     ui.label(RichText::new(txt).size(11.5).color(pal().dim));
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                        ui.label(RichText::new("Enter — открыть · ↑↓ — выбор · Esc — очистить · Ctrl+, — настройки").size(11.5).color(pal().dim));
+                        ui.label(RichText::new(lang::t("Enter — open · ↑↓ — select · Esc — clear · Ctrl+, — settings")).size(11.5).color(pal().dim));
                     });
                 } else if self.scanned.is_some() {
-                    ui.label(RichText::new("Сканирую диски, это может занять пару минут…").size(11.5).color(pal().dim));
+                    ui.label(RichText::new(lang::t("Scanning disks, this may take a few minutes…")).size(11.5).color(pal().dim));
                 }
             });
         });
@@ -639,7 +646,7 @@ fn draw_row(ui: &egui::Ui, resp: &egui::Response, rect: Rect, ix: &Index, idx: u
 
     let is_dir = ix.is_dir(idx);
     let kind = ix.kind_at(idx);
-    let (tag, color) = if is_dir { ("папка", pal().accent) } else { (kind.name(), kind_color(kind)) };
+    let (tag, color) = if is_dir { (lang::t("folder"), pal().accent) } else { (kind.name(), kind_color(kind)) };
 
     // пилюля типа
     let tag_rect = Rect::from_min_size(rect.left_top() + vec2(8.0, 9.0), vec2(86.0, 20.0));
@@ -748,18 +755,37 @@ fn load_wall(ctx: &egui::Context, st: &Settings) -> Option<egui::TextureHandle> 
 }
 
 fn install_fonts(ctx: &egui::Context) {
-    let candidates = [
-        "C:/Windows/Fonts/SegUIVar.ttf",
-        "C:/Windows/Fonts/segoeui.ttf",
-        "C:/Windows/Fonts/arial.ttf",
-    ];
-    let Some(bytes) = candidates.iter().find_map(|p| std::fs::read(p).ok()) else { return };
     let mut defs = FontDefinitions::default();
-    defs.font_data.insert("ui".to_owned(), FontData::from_owned(bytes).into());
+
+    for path in ["C:/Windows/Fonts/SegUIVar.ttf", "C:/Windows/Fonts/segoeui.ttf", "C:/Windows/Fonts/arial.ttf"] {
+        if add_font(&mut defs, "ui", path) {
+            break;
+        }
+    }
+    // запасной шрифт для китайского (и прочих CJK)
+    for path in ["C:/Windows/Fonts/msyh.ttc", "C:/Windows/Fonts/simsun.ttc", "C:/Windows/Fonts/malgun.ttf"] {
+        if add_font(&mut defs, "cjk", path) {
+            break;
+        }
+    }
+
+    let has_cjk = defs.font_data.contains_key("cjk");
     for fam in [FontFamily::Proportional, FontFamily::Monospace] {
-        defs.families.entry(fam).or_default().insert(0, "ui".to_owned());
+        let list = defs.families.entry(fam).or_default();
+        if defs.font_data.contains_key("ui") {
+            list.insert(0, "ui".to_owned());
+        }
+        if has_cjk {
+            list.push("cjk".to_owned());
+        }
     }
     ctx.set_fonts(defs);
+}
+
+fn add_font(defs: &mut FontDefinitions, name: &str, path: &str) -> bool {
+    let Ok(bytes) = std::fs::read(path) else { return false };
+    defs.font_data.insert(name.to_owned(), FontData::from_owned(bytes).into());
+    true
 }
 
 fn spawn_load() -> LoadRx {
@@ -769,52 +795,11 @@ fn spawn_load() -> LoadRx {
         let res = Index::load(&p).map(Arc::new).map_err(|e| e.to_string());
         let _ = tx.send(res);
     });
-    rx
-}
-
-fn fmt_num(n: usize) -> String {
-    let s = n.to_string();
-    let mut out = String::new();
-    for (i, c) in s.chars().enumerate() {
-        if i > 0 && (s.len() - i) % 3 == 0 {
-            out.push('\u{a0}');
-        }
-        out.push(c);
+        rx
     }
-    out
-}
 
-fn plural_records(n: usize) -> &'static str {
-    let m100 = n % 100;
-    let m10 = n % 10;
-    if (11..=14).contains(&m100) {
-        "записей"
-    } else if m10 == 1 {
-        "запись"
-    } else if (2..=4).contains(&m10) {
-        "записи"
-    } else {
-        "записей"
-    }
-}
 
-fn plural(n: usize) -> &'static str {
-    let m100 = n % 100;
-    let m10 = n % 10;
-    if (11..=14).contains(&m100) {
-        "результатов"
-    } else if m10 == 1 {
-        "результат"
-    } else if (2..=4).contains(&m10) {
-        "результата"
-    } else {
-        "результатов"
-    }
-}
 
-fn fmt_ms(v: f64) -> String {
-    format!("{v:.1}").replace('.', ",")
-}
 
 fn human(n: u64) -> String {
     const U: [&str; 5] = ["B", "KB", "MB", "GB", "TB"];

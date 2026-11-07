@@ -1,6 +1,6 @@
 [package]
 name = "hayate"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 description = "Instant file search for Windows and Linux"
 license = "MIT"
@@ -34,4 +34,4 @@ image = { version = "0.25", default-features = false, features = ["png", "jpeg",
 
 [target.'cfg(windows)'.dependencies]
 raw-window-handle = "0.6"
-windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_Graphics_Dwm", "Win32_Graphics_Gdi", "Win32_System_Console", "Win32_System_LibraryLoader", "Win32_System_Registry", "Win32_UI_WindowsAndMessaging"] }
+windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_Graphics_Dwm", "Win32_Graphics_Gdi", "Win32_Globalization", "Win32_System_Console", "Win32_System_LibraryLoader", "Win32_System_Registry", "Win32_UI_WindowsAndMessaging"] }

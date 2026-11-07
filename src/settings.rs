@@ -5,6 +5,8 @@ use std::path::PathBuf;
 use eframe::egui::Color32;
 use serde::{Deserialize, Serialize};
 
+use crate::lang::{self, Lang};
+
 #[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Theme {
     Dark,
@@ -40,13 +42,13 @@ impl Accent {
 
     pub fn name(self) -> &'static str {
         match self {
-            Accent::Blue => "Синий",
-            Accent::Teal => "Бирюзовый",
-            Accent::Green => "Зелёный",
-            Accent::Purple => "Фиолетовый",
-            Accent::Orange => "Оранжевый",
-            Accent::Pink => "Розовый",
-            Accent::Red => "Красный",
+            Accent::Blue => lang::t("Blue"),
+            Accent::Teal => lang::t("Teal"),
+            Accent::Green => lang::t("Green"),
+            Accent::Purple => lang::t("Purple"),
+            Accent::Orange => lang::t("Orange"),
+            Accent::Pink => lang::t("Pink"),
+            Accent::Red => lang::t("Red"),
         }
     }
 }
@@ -80,10 +82,10 @@ pub enum Sort {
 impl Sort {
     pub fn name(self) -> &'static str {
         match self {
-            Sort::Relevance => "По совпадению",
-            Sort::Name => "По имени",
-            Sort::Size => "По размеру",
-            Sort::Date => "По дате",
+            Sort::Relevance => lang::t("Relevance"),
+            Sort::Name => lang::t("Name"),
+            Sort::Size => lang::t("Size"),
+            Sort::Date => lang::t("Date"),
         }
     }
     pub const ALL: [Sort; 4] = [Sort::Relevance, Sort::Name, Sort::Size, Sort::Date];
@@ -100,9 +102,9 @@ pub enum Match {
 impl Match {
     pub fn name(self) -> &'static str {
         match self {
-            Match::Contains => "Содержит",
-            Match::Prefix => "С начала имени",
-            Match::Exact => "Имя целиком",
+            Match::Contains => lang::t("Contains"),
+            Match::Prefix => lang::t("From name start"),
+            Match::Exact => lang::t("Whole name"),
         }
     }
     pub const ALL: [Match; 3] = [Match::Contains, Match::Prefix, Match::Exact];
@@ -142,6 +144,8 @@ pub struct Settings {
     /// Системная подложка окна
         pub backdrop: Backdrop,
     pub density: Density,
+    /// Язык интерфейса
+    pub lang: Lang,
     /// Масштаб интерфейса, 0.85–1.3
     pub font_scale: f32,
     pub show_hidden: bool,
@@ -161,6 +165,7 @@ impl Default for Settings {
             opacity: 0.85,
             backdrop: Backdrop::Mica,
             density: Density::Normal,
+            lang: Lang::Auto,
             font_scale: 1.0,
             show_hidden: true,
             show_sizes: true,
