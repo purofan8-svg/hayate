@@ -205,10 +205,10 @@ impl Filter {
         if (self.files_only || self.kinds.is_some() || self.ext.is_some()) && is_dir {
             return false;
         }
-        if let Some(mask) = self.kinds {
-            if mask & (1u16 << (attrs >> KIND_SHIFT)) == 0 {
-                return false;
-            }
+        if let Some(mask) = self.kinds
+            && mask & (1u16 << (attrs >> KIND_SHIFT)) == 0
+        {
+            return false;
         }
         if let Some(ext) = &self.ext {
             let e = ext.as_bytes();

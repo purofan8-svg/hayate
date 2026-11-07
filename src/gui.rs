@@ -172,10 +172,10 @@ fn spawn_capture(hwnd: isize) -> CapWorker {
                 crate::capture::exclude_from_capture(h, true);
                 let grabbed = crate::capture::grab_blurred(x, y, w, hh, 160, 96, 3.5);
                 crate::capture::exclude_from_capture(h, false);
-                if let Some(frame) = grabbed {
-                    if tx.send(frame).is_err() {
-                        break;
-                    }
+                if let Some(frame) = grabbed
+                    && tx.send(frame).is_err()
+                {
+                    break;
                 }
             }
             std::thread::sleep(std::time::Duration::from_millis(200));
@@ -326,11 +326,11 @@ impl eframe::App for App {
         let want_cap =
             self.st.backdrop == crate::settings::Backdrop::Acrylic && self.st.opacity < 0.98;
         if want_cap {
-            if self.cap.is_none() {
-                if let Some(h) = hwnd_of(frame) {
-                    crate::capture::exclude_from_capture(h, true);
-                    self.cap = Some(spawn_capture(h as isize));
-                }
+            if self.cap.is_none()
+                && let Some(h) = hwnd_of(frame)
+            {
+                crate::capture::exclude_from_capture(h, true);
+                self.cap = Some(spawn_capture(h as isize));
             }
             if let Some(cap) = &self.cap {
                 let mut latest = None;
@@ -614,10 +614,10 @@ impl App {
             })
             .rounding(Rounding::same(8.0))
             .min_size(vec2(200.0, 36.0));
-            if ui.add_enabled(!scanning, btn).clicked() {
-                if let Ok(exe) = std::env::current_exe() {
-                    self.scanned = std::process::Command::new(exe).arg("index").spawn().ok();
-                }
+            if ui.add_enabled(!scanning, btn).clicked()
+                && let Ok(exe) = std::env::current_exe()
+            {
+                self.scanned = std::process::Command::new(exe).arg("index").spawn().ok();
             }
         });
     }
@@ -934,7 +934,7 @@ fn add_font(defs: &mut FontDefinitions, name: &str, path: &str) -> bool {
         return false;
     };
     defs.font_data
-        .insert(name.to_owned(), FontData::from_owned(bytes).into());
+        .insert(name.to_owned(), FontData::from_owned(bytes));
     true
 }
 
