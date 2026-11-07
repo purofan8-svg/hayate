@@ -79,7 +79,14 @@ fn main() {
 
 fn run(cmd: Cmd) -> Result<(), Box<dyn std::error::Error>> {
     match cmd {
-        Cmd::Gui => gui::run()?,
+        Cmd::Gui => {
+            // бинарь консольный: при запуске из ярлыка прячем лишнее окно консоли
+            #[cfg(windows)]
+            unsafe {
+                windows_sys::Win32::System::Console::FreeConsole();
+            }
+            gui::run()?
+        }
         Cmd::Index { roots, exclude, out } => {
             let roots = if roots.is_empty() { walk::default_roots() } else { roots };
             println!("Сканирую: {}", roots.iter().map(|p| p.display().to_string()).collect::<Vec<_>>().join(", "));

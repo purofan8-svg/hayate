@@ -11,6 +11,18 @@ hayate find create -l 20   # консольный поиск
 
 ![GUI](docs/screenshot.png)
 
+## Установка (Windows)
+
+1. Скачай `hayate-<версия>-win64.zip` со страницы **Releases**.
+2. Распакуй архив целиком (не запускай изнутри zip).
+3. Запусти `hayate-setup.exe`.
+
+Дальше всё само: приложение встанет в `%LOCALAPPDATA%\Programs\hayate`, появятся ярлыки в меню Пуск и на рабочем столе, а в «Параметры → Приложения» — запись для удаления.
+
+Портативно (без установки): просто запусти `hayate.exe` из архива.
+
+Linux: `cargo build --release` и `./target/release/hayate`.
+
 ## Настройки (шестерёнка справа сверху или Ctrl+,)
 
 ![Настройки](docs/settings.png)

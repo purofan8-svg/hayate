@@ -42,16 +42,23 @@ fn apply_style(ctx: &egui::Context, st: &Settings) {
 
 pub fn run() -> eframe::Result<()> {
     let st = Settings::load();
-    let opts = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default()
-            .with_inner_size(st.window)
-            .with_min_inner_size([720.0, 440.0])
-            .with_transparent(true)
-            .with_title("hayate"),
-        vsync: true,
-        ..Default::default()
-    };
+    let mut vp = egui::ViewportBuilder::default()
+        .with_inner_size(st.window)
+        .with_min_inner_size([720.0, 440.0])
+        .with_transparent(true)
+        .with_title("hayate");
+    if let Some(icon) = app_icon() {
+        vp = vp.with_icon(icon);
+    }
+    let opts = eframe::NativeOptions { viewport: vp, vsync: true, ..Default::default() };
     eframe::run_native("hayate", opts, Box::new(move |cc| Ok(Box::new(App::new(cc, st)))))
+}
+
+fn app_icon() -> Option<egui::IconData> {
+    let bytes = include_bytes!("../assets/icon.png");
+    let img = image::load_from_memory(bytes).ok()?.to_rgba8();
+    let (width, height) = img.dimensions();
+    Some(egui::IconData { rgba: img.into_raw(), width, height })
 }
 
 type LoadRx = Receiver<Result<Arc<Index>, String>>;
