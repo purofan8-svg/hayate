@@ -104,7 +104,7 @@ impl App {
     fn open_selected(&self) {
         if let Some(&i) = self.results.get(self.sel) {
             let p = self.ix.path_at(i).to_string();
-            open_path(&p);
+            crate::shell::open_path(&p);
         }
     }
 }
@@ -275,17 +275,6 @@ fn human(n: u64) -> String {
     }
 }
 
-#[cfg(windows)]
-fn open_path(p: &str) {
-    let _ = std::process::Command::new("cmd")
-        .args(["/C", "start", "", p])
-        .spawn();
-}
-
-#[cfg(not(windows))]
-fn open_path(p: &str) {
-    let _ = std::process::Command::new("xdg-open").arg(p).spawn();
-}
 
 #[cfg(test)]
 mod tests {

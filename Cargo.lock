@@ -1625,7 +1625,7 @@ dependencies = [
 
 [[package]]
 name = "hayate"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "clap",
  "crossterm",
@@ -1637,6 +1637,7 @@ dependencies = [
  "rayon",
  "serde",
  "serde_json",
+ "windows 0.58.0",
  "windows-sys 0.59.0",
 ]
 

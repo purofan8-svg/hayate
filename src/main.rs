@@ -4,6 +4,8 @@ mod index;
 mod lang;
 mod settings;
 mod settings_ui;
+mod shell;
+mod shell_menu;
 mod tui;
 mod walk;
 mod wallpaper;

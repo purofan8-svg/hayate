@@ -200,6 +200,8 @@ struct App {
     scroll_to_sel: bool,
     scanned: Option<std::process::Child>,
     titlebar_done: bool,
+    hwnd: isize,
+    pending_menu: Option<String>,
     st: Settings,
     show_settings: bool,
     style_dirty: bool,
@@ -233,6 +235,8 @@ impl App {
             scroll_to_sel: false,
             scanned: None,
             titlebar_done: false,
+            hwnd: 0,
+            pending_menu: None,
             st,
             show_settings: std::env::var_os("HAYATE_OPEN_SETTINGS").is_some(),
             style_dirty: false,
@@ -266,7 +270,7 @@ impl App {
     fn open_selected(&self) {
         let Some(ix) = self.ix() else { return };
         if let Some(&i) = self.results.get(self.sel) {
-            open_path(ix.path_at(i));
+            crate::shell::open_path(ix.path_at(i));
         }
     }
 }
@@ -276,6 +280,16 @@ impl eframe::App for App {
         if !self.titlebar_done {
             set_dark_titlebar(frame, self.st.backdrop);
             self.titlebar_done = true;
+        }
+        if self.hwnd == 0 {
+            if let Some(h) = hwnd_of(frame) {
+                self.hwnd = h as isize;
+            }
+        }
+        // меню оболочки показываем в начале кадра, вне отрисовки
+        if let Some(path) = self.pending_menu.take() {
+            crate::shell_menu::show(self.hwnd, &path);
+            ctx.request_repaint();
         }
 
         // подхватываем результат фоновой загрузки
@@ -560,6 +574,10 @@ impl App {
                 let (rect, resp) =
                     ui.allocate_exact_size(vec2(ui.available_width(), row_h()), Sense::click());
                 let resp = resp.on_hover_text(ix.path_at(idx));
+                if resp.secondary_clicked() {
+                    self.pending_menu = Some(ix.path_at(idx).to_string());
+                    ui.ctx().request_repaint();
+                }
                 let selected = row == self.sel;
                 draw_row(ui, &resp, rect, ix, idx, selected);
                 if resp.clicked() {
@@ -963,17 +981,6 @@ fn human(n: u64) -> String {
     }
 }
 
-#[cfg(windows)]
-fn open_path(p: &str) {
-    let _ = std::process::Command::new("cmd")
-        .args(["/C", "start", "", p])
-        .spawn();
-}
-
-#[cfg(not(windows))]
-fn open_path(p: &str) {
-    let _ = std::process::Command::new("xdg-open").arg(p).spawn();
-}
 
 #[cfg(windows)]
 fn hwnd_of(frame: &eframe::Frame) -> Option<*mut core::ffi::c_void> {

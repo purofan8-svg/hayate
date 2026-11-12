@@ -1,129 +1,147 @@
 # hayate — 疾風
 
-Мгновенный поиск файлов для Windows и Linux. Rust, без Electron, без индексации в фоне годами.
+Instant file search for Windows and Linux. Rust, no Electron, no background indexer eating your disk.
 
-> **Статус: ранняя версия (0.1.x), нестабильная.** Основное работает, но есть известные шероховатости —
-> в режиме «Акрил» фон немного отстаёт при перетаскивании окна (снимок экрана обновляется 5 раз в секунду),
-> индекс пока не обновляется сам. Ставь, если готов к такому.
+**English** · [Русский](README.ru.md) · [中文](README.zh.md)
+
+> **Early version (0.2).** The core works, but there are known rough edges: in "Acrylic" mode the background
+> lags slightly when you drag the window (the screen is captured 5 times per second), and the index does not
+> refresh itself yet. Install it if that's fine with you.
 
 ```
-hayate                     # GUI в стиле Windows 11
-hayate index               # просканировать все диски (≈7 с на 1 млн записей)
-hayate tui                 # интерактивный поиск в терминале
-hayate find create -l 20   # консольный поиск
+hayate                     # Windows 11 style GUI
+hayate index               # scan all disks (≈7 s per 1M entries)
+hayate tui                 # interactive search in the terminal
+hayate find create -l 20   # console search
 ```
 
 ![GUI](docs/screenshot.png)
 
-## Установка (Windows)
+## Install (Windows)
 
-1. Скачай `hayate-<версия>-win64.zip` со страницы **Releases**.
-2. Распакуй архив целиком (не запускай изнутри zip).
-3. Запусти `hayate-setup.exe`.
+1. Download `hayate-<version>-win64.zip` from the **Releases** page.
+2. Extract the archive completely (don't run from inside the zip).
+3. Run `hayate-setup.exe`.
 
-Дальше всё само: приложение встанет в `%LOCALAPPDATA%\Programs\hayate`, появятся ярлыки в меню Пуск и на рабочем столе, а в «Параметры → Приложения» — запись для удаления.
+The installer puts the app in `%LOCALAPPDATA%\Programs\hayate`, adds Start Menu and desktop shortcuts,
+and registers an "Apps & features" entry for a clean uninstall.
 
-Портативно (без установки): просто запусти `hayate.exe` из архива.
+Portable: just run `hayate.exe` from the archive.
 
-Linux: `cargo build --release` и `./target/release/hayate`.
+Linux: `cargo build --release` and `./target/release/hayate`.
 
-## Настройки (шестерёнка справа сверху или Ctrl+,)
+## Settings (gear icon in the top right, or Ctrl+,)
 
-![Настройки](docs/settings.png)
+![Settings](docs/settings.png)
 
-Всё сохраняется в `%LOCALAPPDATA%\hayate\settings.json` и применяется на лету:
+Everything is stored in `%LOCALAPPDATA%\hayate\settings.json` and applied on the fly:
 
-- **Тема**: тёмная / светлая.
-- **Акцент**: 7 цветов Windows (синий, бирюзовый, зелёный, фиолетовый, оранжевый, розовый, красный).
-- **Прозрачность**: «Непрозрачность фона» 20–100 % — настоящая альфа окна (при 100 % фон сплошной).
-- **Подложка**: `Сплошной` (без прозрачности) / `Mica` (размытые обои под интерфейсом) / `Акрил` (живой блюр того, что за окном — снимается 8 раз в секунду и размывается).
-- **Плотность списка**: плотно / обычно / свободно.
-- **Показывать скрытые**, **показывать размер** — тумблеры.
-- **Лимит результатов**: 50–2000 (в статусе появляется «+», если упёрлись).
-- **Сортировка**: по совпадению / имени / размеру / дате.
-- **Совпадение**: содержит / с начала имени / имя целиком.
-- **Масштаб интерфейса**: 0.85–1.3.
-- Размер окна запоминается.
+- **Language**: English / Русский / 中文, or auto (system locale).
+- **Theme**: dark / light.
+- **Accent**: 7 Windows colors (blue, teal, green, purple, orange, pink, red).
+- **Background opacity**: 20–100 % — real window alpha (100 % = solid).
+- **Backdrop**: `Solid` / `Mica` (blurred wallpaper behind the UI) / `Acrylic` (live blur of whatever is behind the window).
+- **Density**: compact / normal / relaxed.
+- **Show hidden**, **show size** toggles.
+- **Result limit**: 50–2000 (a "+" appears in the status bar when the cap is hit).
+- **Sort**: relevance / name / size / date.
+- **Match**: contains / from name start / whole name.
+- **Interface scale**: 0.85–1.3.
+- Window size is remembered.
 
-## Что умеет
+## Features
 
-- Индекс в памяти + на диске, поиск 5–20 мс на миллионе записей.
-- Фильтр по типу: папки / файлы / картинки / видео / аудио / документы / текст / архивы / код / программы / шрифты / 3D-модели.
-- Точный фильтр по расширению (`-e jar`).
-- Ранжирование: совпадение в имени файла выше, чем в пути; короткие пути выше.
-- JSON-вывод для скриптов (`--json`).
+- Index in memory and on disk: 5–20 ms searches over a million entries.
+- Type filter: folders / files / images / video / audio / documents / text / archives / code / programs / fonts / 3D models.
+- Exact extension filter (`-e jar`).
+- Ranking: a match in the file name beats a match in the path; shorter paths rank higher.
+- JSON output for scripting (`--json`).
 
-## Команды
+## Commands
 
 ```
-hayate index [КАТАЛОГИ...] [--exclude ИМЯ]... [--out ФАЙЛ]
-hayate find "запрос" [-l 40] [-t image,video] [-e png] [--dirs|--files] [--json]
+hayate index [DIRS...] [--exclude NAME]... [--out FILE]
+hayate find "query" [-l 40] [-t image,video] [-e png] [--dirs|--files] [--json]
 hayate tui
 hayate stats
-hayate bench "запрос" [-r 30]
+hayate bench "query" [-r 30]
 ```
 
-Типы для `-t`: `image, video, audio, doc, text, archive, code, exec, font, model, other`
-(русские синонимы тоже работают: `картинки`, `видео`, ...).
+Types for `-t`: `image, video, audio, doc, text, archive, code, exec, font, model, other`
+(Russian synonyms work too: `картинки`, `видео`, ...).
 
-Пустой запрос + фильтр = «покажи все файлы такого типа»:
+Empty query + filter = "show me every file of this type":
 
 ```
-hayate find "" -t video -l 10      # 10 видеофайлов с диска
-hayate find "" --dirs -l 20        # список каталогов
+hayate find "" -t video -l 10      # 10 video files from the disk
+hayate find "" --dirs -l 20        # list directories
 ```
 
-## Горячие клавиши TUI
+## TUI hotkeys
 
-| Клавиша | Действие |
+| Key | Action |
 |---|---|
-| печать | поиск на лету |
-| Tab | следующий фильтр (всё → папки → файлы → прочее → картинки → ... ) |
-| ↑ / ↓, PgUp / PgDn | выбор |
-| Enter | открыть файл/папку в системе |
-| Ctrl+U | очистить запрос |
-| Esc / Ctrl+C | выход |
+| typing | live search |
+| Tab | next filter (all → folders → files → other → images → ...) |
+| ↑ / ↓, PgUp / PgDn | move selection |
+| Enter | open the file/folder in the system |
+| Ctrl+U | clear the query |
+| Esc / Ctrl+C | quit |
 
-## Замеры (Xeon E5-2660v3, 10 ядер, Win11)
+## Benchmarks (Xeon E5-2660v3, 10 cores, Win11)
 
-| Операция | Результат |
+| Operation | Result |
 |---|---|
-| Скан `C:\Users\Phiron` (938k записей, SSD) | 6.35 с · 147 685 файлов/с |
-| Скан `C:\ + F:\ + Z:\` (2.85 млн записей, 868 ГБ) | 679 с · 4 197 файлов/с (узкое место — HDD) |
-| Индекс на 2.85 млн | 695 МБ, загрузка ≈1.1 с |
-| Поиск «config» по 2.85 млн | 17.9 мс |
-| Поиск «a» по 2.85 млн | 47.2 мс |
-| Поиск «minecraft» по 2.85 млн | 21.7 мс |
-| Пустой запрос + фильтр «картинки» | 1.2 мс (938k) |
+| Scan `C:\Users\Phiron` (938k entries, SSD) | 6.35 s · 147,685 files/s |
+| Scan `C:\ + F:\ + Z:\` (2.85M entries, 868 GB) | 679 s · 4,197 files/s (HDD-bound) |
+| 2.85M-entry index | 695 MB, ~1.1 s to load |
+| Search "config" over 2.85M | 17.9 ms |
+| Search "a" over 2.85M | 47.2 ms |
+| Search "minecraft" over 2.85M | 21.7 ms |
+| Empty query + "images" filter | 1.2 ms (938k) |
 
-Первый вариант обхода (jwalk + stat на каждую запись) давал 3 000 файлов/с — 314 с на домашнюю папку.
-Текущий: `read_dir` с метаданными из записи каталога + параллельные волны по уровням, шарды мержатся.
+The first walker (jwalk + a stat call per entry) managed 3,000 files/s — 314 s for the home folder.
+The current one uses `read_dir` with metadata from the directory entry, plus parallel level-by-level waves
+that merge their shards.
 
-Честно: на HDD полный скан диска — это минуты, потому что обход читает каждый каталог отдельно.
-На NTFS это лечится USN journal (чтение MFT одним потоком), он в планах.
+Honestly: a full HDD scan takes minutes because every directory is read separately.
+On NTFS this is solved by the USN journal (MFT read in one pass) — it's on the roadmap.
 
-## Формат индекса
+## Index format
 
-Один файл, little-endian:
+A single little-endian file:
 
 ```
 "HAYATE01" | n | len(buf) | len(fbuf) | len(roots) | roots | buf | fbuf | ends[] | fends[] | sizes[] | mtimes[] | attrs[]
 ```
 
-- `buf` — все пути подряд, `ends[i]` — конец i-го пути (u32).
-- `fbuf`/`fends` — то же в нижнем регистре для быстрого поиска без учёта регистра.
-- `attrs`: бит0 — каталог, бит1 — скрытый, биты 2..7 — тип файла.
+- `buf` — all paths concatenated, `ends[i]` — end offset of the i-th path (u32).
+- `fbuf`/`fends` — the same in lowercase for fast case-insensitive search.
+- `attrs`: bit 0 — directory, bit 1 — hidden, bits 2..7 — file type.
 
-Путь по умолчанию: `%LOCALAPPDATA%\hayate\index.bin` (Windows), `$XDG_CACHE_HOME/hayate/index.bin` (Linux). Переопределяется `HAYATE_INDEX`.
+Default location: `%LOCALAPPDATA%\hayate\index.bin` (Windows), `$XDG_CACHE_HOME/hayate/index.bin` (Linux).
+Override with `HAYATE_INDEX`.
 
-## Языки
+## Languages
 
-Интерфейс на русском, английском и китайском. По умолчанию — по языку системы, переключается в настройках (`Язык`).
-Строки лежат одной таблицей в `src/lang.rs`, чтобы добавить новый язык было достаточно дописать столбец.
+The UI speaks English, Russian and Chinese. It follows the system locale by default and can be switched
+in settings (`Language`). All strings live in one table in `src/lang.rs`, so adding a language means
+adding one column.
 
-## Дальше
+## Roadmap
 
-- [ ] USN journal / MFT на Windows — инкрементальное обновление за миллисекунды вместо полного скана.
-- [ ] inotify на Linux.
-- [ ] Сжатие индекса (u32 вместо u64 для размера и mtime).
-- [ ] Нечёткий поиск (fzf-style) как альтернативный режим.
+- [ ] USN journal / MFT on Windows — incremental updates in milliseconds instead of full rescans.
+- [ ] inotify on Linux.
+- [ ] Index compaction (u32 instead of u64 for size and mtime).
+- [ ] Fuzzy search (fzf-style) as an alternative mode.
+- [ ] Global hotkey + tray icon.
+- [ ] Native Windows context menu (Open / Open with / Copy / Properties).
+
+## Build
+
+```
+cargo build --release --bin hayate --bin hayate-setup
+powershell -File tools/package.ps1 -Version 0.2.0   # dist/hayate-0.2.0-win64.zip
+```
+
+MIT licensed. Not affiliated with Microsoft.
