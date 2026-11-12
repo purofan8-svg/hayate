@@ -63,9 +63,7 @@ mod imp {
                 }
             };
 
-            if menu_iface
-                .QueryContextMenu(menu, 0, 1, 0x7FFF, CMF_NORMAL_EXTENDED)
-                .is_ok()
+            let _ = menu_iface.QueryContextMenu(menu, 0, 1, 0x7FFF, CMF_NORMAL_EXTENDED);
             {
                 let mut pt = Default::default();
                 let _ = GetCursorPos(&mut pt);

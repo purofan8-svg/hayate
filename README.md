@@ -56,6 +56,7 @@ Everything is stored in `%LOCALAPPDATA%\hayate\settings.json` and applied on the
 - Exact extension filter (`-e jar`).
 - Ranking: a match in the file name beats a match in the path; shorter paths rank higher.
 - JSON output for scripting (`--json`).
+- **Right-click opens the real Windows context menu**: Open, Open with (Notepad++, etc.), Copy, Properties.
 
 ## Commands
 
@@ -135,7 +136,6 @@ adding one column.
 - [ ] Index compaction (u32 instead of u64 for size and mtime).
 - [ ] Fuzzy search (fzf-style) as an alternative mode.
 - [ ] Global hotkey + tray icon.
-- [ ] Native Windows context menu (Open / Open with / Copy / Properties).
 
 ## Build
 
